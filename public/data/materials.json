@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "subjectId": 1,
+    "type": "notes",
+    "title": "Introduction to Arrays",
+    "url": "https://example.com/arrays.pdf",
+    "uploadedBy": "Dr. Smith",
+    "uploadDate": "2023-10-15"
+  },
+  {
+    "id": 2,
+    "subjectId": 1,
+    "type": "video",
+    "title": "Linked Lists Tutorial",
+    "url": "https://example.com/linkedlists.mp4",
+    "uploadedBy": "Dr. Smith",
+    "uploadDate": "2023-10-16"
+  },
+  {
+    "id": 3,
+    "subjectId": 2,
+    "type": "ppt",
+    "title": "Database Normalization",
+    "url": "https://example.com/normalization.pptx",
+    "uploadedBy": "Dr. Johnson",
+    "uploadDate": "2023-10-10"
+  },
+  {
+    "id": 4,
+    "subjectId": 2,
+    "type": "notes",
+    "title": "SQL Basics",
+    "url": "https://example.com/sql.pdf",
+    "uploadedBy": "Dr. Johnson",
+    "uploadDate": "2023-10-12"
+  },
+  {
+    "id": 5,
+    "subjectId": 3,
+    "type": "video",
+    "title": "Process Scheduling",
+    "url": "https://example.com/scheduling.mp4",
+    "uploadedBy": "Dr. Williams",
+    "uploadDate": "2023-10-08"
+  },
+  {
+    "id": 6,
+    "subjectId": 4,
+    "type": "notes",
+    "title": "React Fundamentals",
+    "url": "https://example.com/react.pdf",
+    "uploadedBy": "Dr. Brown",
+    "uploadDate": "2023-10-05"
+  },
+  {
+    "id": 7,
+    "subjectId": 5,
+    "type": "ppt",
+    "title": "Neural Networks Introduction",
+    "url": "https://example.com/neural.pptx",
+    "uploadedBy": "Dr. Davis",
+    "uploadDate": "2023-10-01"
+  }
+]

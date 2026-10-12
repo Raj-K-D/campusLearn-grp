@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "name": "Data Structures",
+    "code": "CS301",
+    "course": "BTech",
+    "department": "CSE",
+    "year": "2nd",
+    "sem": "3",
+    "description": "Study of data structures and algorithms",
+    "credits": "4",
+    "faculty": "Dr. Smith"
+  },
+  {
+    "id": 2,
+    "name": "Database Systems",
+    "code": "CS302",
+    "course": "BTech",
+    "department": "CSE",
+    "year": "2nd",
+    "sem": "3",
+    "description": "Introduction to database management systems",
+    "credits": "4",
+    "faculty": "Dr. Johnson"
+  },
+  {
+    "id": 3,
+    "name": "Operating Systems",
+    "code": "CS303",
+    "course": "BTech",
+    "department": "CSE",
+    "year": "3rd",
+    "sem": "5",
+    "description": "Study of operating system concepts",
+    "credits": "4",
+    "faculty": "Dr. Williams"
+  },
+  {
+    "id": 4,
+    "name": "Web Development",
+    "code": "CS304",
+    "course": "BTech",
+    "department": "CSE",
+    "year": "3rd",
+    "sem": "5",
+    "description": "Modern web development technologies",
+    "credits": "3",
+    "faculty": "Dr. Brown"
+  },
+  {
+    "id": 5,
+    "name": "Machine Learning",
+    "code": "CS305",
+    "course": "BTech",
+    "department": "CSE",
+    "year": "4th",
+    "sem": "7",
+    "description": "Introduction to machine learning algorithms",
+    "credits": "4",
+    "faculty": "Dr. Davis"
+  }
+]

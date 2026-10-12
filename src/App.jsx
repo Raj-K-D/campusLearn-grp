@@ -1,0 +1,309 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { FaArrowRight, FaLock, FaRocket, FaMoon, FaSun, FaCalculator, FaBook, FaUsers, FaShieldAlt } from 'react-icons/fa';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import SubjectPage from './pages/SubjectPage';
+import Admin from './pages/Admin';
+import Login from './pages/Login';
+import StudentDashboard from './pages/StudentDashboard';
+import NotFound from './pages/NotFound';
+import EnrollPage from './pages/EnrollPage';
+import CoordinatorDashboard from './pages/CoordinatorDashboard';
+import { ProtectedRoute, AdminRoute, CoordinatorRoute } from './components/ProtectedRoute';
+import CGPACalculator from './components/CGPACalculator';
+import AIBuddy from './components/AIBuddy';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// ===================== LANDING PAGE =====================
+const FEATURES = [
+  { icon: '📚', title: 'Notes & PPTs', desc: 'Structured, semester-wise study materials for every branch.' },
+  { icon: '🎬', title: 'Video Lectures', desc: 'Curated YouTube lectures linked directly to each subject.' },
+  { icon: '🧠', title: 'Quizzes', desc: 'Test yourself with interactive quizzes after each topic.' },
+  { icon: '📊', title: 'CGPA Tracker', desc: 'Calculate your CGPA and plan your academic goals.' },
+];
+
+const STATS = [
+  { value: '150+', label: 'Study Materials' },
+  { value: '14',   label: 'Subjects Covered' },
+  { value: '5+',   label: 'Branches Supported' },
+  { value: '100%', label: 'Free Access' },
+];
+
+function Landing() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { darkMode, setDarkMode } = useTheme();
+  const [showCalc, setShowCalc] = useState(false);
+  const dm = darkMode;
+
+  return (
+    <div className={`min-h-screen font-sans transition-colors ${dm ? 'bg-gray-950 text-white' : 'bg-white text-gray-900'}`}>
+      {/* NAVBAR */}
+      <nav className={`fixed top-0 w-full z-40 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors ${
+        dm ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-gray-100'
+      }`}>
+        <Link to="/" className="text-2xl font-extrabold tracking-tight">
+          Campus<span className="text-indigo-600">Learn</span>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setDarkMode(!dm)}
+            className={`p-2.5 rounded-full transition ${dm ? 'text-yellow-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`}
+          >
+            {dm ? <FaSun /> : <FaMoon />}
+          </button>
+          {user ? (
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="bg-indigo-600 text-white px-5 py-2 rounded-full font-bold text-sm hover:bg-indigo-700 transition"
+            >
+              My Dashboard
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="bg-indigo-600 text-white px-5 py-2 rounded-full font-bold text-sm hover:bg-indigo-700 transition"
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="relative pt-32 pb-24 px-6 overflow-hidden">
+        {/* Background blobs */}
+        <div className="absolute top-20 left-1/4 w-96 h-96 bg-indigo-400 rounded-full blur-3xl opacity-10 pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-blue-400 rounded-full blur-3xl opacity-10 pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="max-w-4xl mx-auto text-center relative z-10"
+        >
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-8 border"
+            style={{
+              background: dm ? 'rgba(99,102,241,0.1)' : 'rgba(238,242,255,1)',
+              borderColor: dm ? 'rgba(99,102,241,0.3)' : 'rgba(199,210,254,1)',
+              color: dm ? '#a5b4fc' : '#4f46e5',
+            }}
+          >
+            🎓 Built for Engineering Students
+          </motion.div>
+
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
+            Your Academic
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500">
+              Survival Kit
+            </span>
+          </h1>
+          <p className={`text-xl md:text-2xl mb-10 max-w-2xl mx-auto leading-relaxed ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+            Notes, video lectures, quizzes, and tools — everything you need to ace every semester, all in one place.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/dashboard')}
+              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-indigo-700 transition shadow-xl shadow-indigo-500/25"
+            >
+              Start Learning Free <FaArrowRight />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setShowCalc(true)}
+              className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-lg transition border ${
+                dm
+                  ? 'bg-gray-900 border-gray-700 text-gray-200 hover:bg-gray-800'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm'
+              }`}
+            >
+              <FaCalculator /> CGPA Calculator
+            </motion.button>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* STATS BAR */}
+      <section className={`py-12 border-y ${dm ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {STATS.map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="text-center"
+            >
+              <div className="text-4xl font-extrabold text-indigo-600 mb-1">{stat.value}</div>
+              <div className={`text-sm font-medium ${dm ? 'text-gray-400' : 'text-gray-500'}`}>{stat.label}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section className="py-20 px-6 max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-14"
+        >
+          <h2 className="text-4xl font-extrabold mb-4">Everything you need to excel</h2>
+          <p className={`text-lg max-w-2xl mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+            One platform, all your study resources — organized, accessible, and free.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              whileHover={{ y: -4 }}
+              className={`p-6 rounded-2xl border transition-all ${
+                dm
+                  ? 'bg-gray-900 border-gray-800 hover:border-indigo-700'
+                  : 'bg-white border-gray-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-50'
+              }`}
+            >
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
+                dm ? 'bg-indigo-900/40' : 'bg-indigo-50'
+              }`}>
+                {f.icon}
+              </div>
+              <h3 className="text-lg font-bold mb-2">{f.title}</h3>
+              <p className={`text-sm leading-relaxed ${dm ? 'text-gray-400' : 'text-gray-500'}`}>{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA SECTION */}
+      <section className="py-20 px-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="max-w-4xl mx-auto rounded-3xl overflow-hidden relative bg-gradient-to-r from-indigo-600 to-blue-600 p-12 text-center text-white"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-24 -mt-24 pointer-events-none" />
+          <div className="relative">
+            <div className="text-5xl mb-6">🚀</div>
+            <h2 className="text-4xl font-extrabold mb-4">Ready to crush your exams?</h2>
+            <p className="text-indigo-200 mb-8 text-lg max-w-xl mx-auto">
+              Join thousands of engineering students already using CampusLearn to study smarter.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => navigate(user ? '/dashboard' : '/login')}
+                className="inline-flex items-center gap-2 bg-white text-indigo-700 px-8 py-4 rounded-xl font-bold hover:bg-indigo-50 transition"
+              >
+                {user ? 'Go to Dashboard' : 'Sign Up Free'} <FaArrowRight />
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="inline-flex items-center gap-2 bg-white/20 text-white border border-white/30 px-8 py-4 rounded-xl font-bold hover:bg-white/30 transition"
+              >
+                Browse as Guest
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className={`border-t py-10 px-6 ${dm ? 'border-gray-800 bg-gray-950' : 'border-gray-100 bg-white'}`}>
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="text-xl font-extrabold">
+            Campus<span className="text-indigo-600">Learn</span>
+          </div>
+          <p className={`text-sm ${dm ? 'text-gray-500' : 'text-gray-400'}`}>
+            © 2024 CampusLearn — Built with ❤️ for engineering students
+          </p>
+          <div className="flex gap-4 text-sm">
+            <Link to="/dashboard" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Dashboard
+            </Link>
+            <Link to="/login" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Login
+            </Link>
+          </div>
+        </div>
+      </footer>
+
+      {showCalc && <CGPACalculator onClose={() => setShowCalc(false)} darkMode={dm} />}
+    </div>
+  );
+}
+
+// ===================== PUBLIC DASHBOARD (Guest Browse) =====================
+function PublicDashboard() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { darkMode } = useTheme();
+  const dm = darkMode;
+
+  // Redirect logged-in users to their personalized dashboard
+  if (user) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
+
+  return <StudentDashboard />;
+}
+
+// ===================== MAIN APP =====================
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <ThemeProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              {/* Magic link enrollment — no auth required */}
+              <Route path="/enroll/:batchToken" element={<EnrollPage />} />
+              {/* Public subject browser — guests can browse, login needed for quiz/extras */}
+              <Route path="/dashboard" element={<StudentDashboard />} />
+              <Route path="/subject/:id" element={<SubjectPage />} />
+              {/* Admin — requires authentication + is_admin flag */}
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <Admin />
+                </AdminRoute>
+              } />
+              {/* Coordinator — requires is_coordinator or is_admin */}
+              <Route path="/coordinator" element={
+                <CoordinatorRoute>
+                  <CoordinatorDashboard />
+                </CoordinatorRoute>
+              } />
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <AIBuddy />
+          </BrowserRouter>
+        </ThemeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
