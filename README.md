@@ -1,16 +1,104 @@
-# React + Vite
+# CampusLearn
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+CampusLearn is a modern academic platform designed for engineering students, teachers, coordinators, and administrators. It brings study resources, student dashboards, role-based access, AI assistance, and academic management tools into a single web app.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Student dashboard with courses, resources, quizzes, and CGPA tracking
+- Subject-wise notes, videos, question papers, and learning materials
+- Role-based access for students, teachers, coordinators, and admins
+- AI-powered academic assistant for quick help and guidance
+- Admin and coordinator tools for enrollment, approvals, and academic workflows
+- Dark mode and responsive design for desktop and mobile use
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React + Vite
+- Tailwind CSS
+- Supabase for auth and database
+- Google Gemini API for AI assistant features
+- Framer Motion for UI interactions
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `src/` - application source code
+- `public/` - static assets
+- `supabase_schema.sql` and related SQL files - database schema and setup scripts
+- `complete_campuslearn_setup.sql` - full setup script for Supabase
+- `.env.example` - environment configuration template
+
+## Prerequisites
+
+Before running the app, make sure you have:
+
+- Node.js 18+
+- npm
+- A Supabase project
+- A Gemini API key
+
+## Environment Setup
+
+1. Copy the example environment file:
+
+   ```bash
+   copy .env.example .env
+   ```
+
+2. Fill in the values in `.env`:
+
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   VITE_GEMINI_API_KEY=your-gemini-api-key
+   SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+   ```
+
+## Database Setup
+
+Run the Supabase SQL scripts in your Supabase SQL editor before starting the app.
+
+Recommended flow:
+
+1. Import the schema from `supabase_schema.sql` or `complete_campuslearn_setup.sql`
+2. Apply any additional migration or fix scripts if required by your environment
+3. Confirm that the necessary tables, policies, and auth users are available
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+## Linting
+
+```bash
+npm run lint
+```
+
+## Notes
+
+This project is intended to be used with a configured Supabase backend and valid API credentials. Without the required environment variables and database schema, the app will not function correctly.
+
+## License
+
+This project is currently for internal academic/prototype use.
