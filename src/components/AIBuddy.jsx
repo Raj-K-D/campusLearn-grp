@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaRobot, FaTimes, FaPaperPlane, FaMagic, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaPaperPlane, FaTrash, FaHeart } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../context/ThemeContext';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requestAI } from '../util/ai';
 
 const STORAGE_KEY = 'cl_ai_chat_history';
 
@@ -24,9 +24,14 @@ export default function AIBuddy() {
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : [{
         role: 'assistant',
-        content: "Hi! I'm your **CampusLearn AI Buddy** 🎓\n\nI can help you:\n- Summarize notes and concepts\n- Generate practice questions\n- Explain difficult topics\n- Clear doubts before exams\n\nWhat are we studying today?",
+        content: "Hi! I'm **Mini Agent** 🧸💜, your CampusLearn study companion!\n\nI can help you:\n- Summarize notes and concepts\n- Generate practice questions\n- Explain difficult topics\n- Clear doubts before exams\n\nWhat are we studying today?",
       }];
-    } catch { return []; }
+    } catch {
+      return [{
+        role: 'assistant',
+        content: "Hi! I'm **Mini Agent** 🧸💜, your CampusLearn study companion!\n\nWhat are we studying today?",
+      }];
+    }
   });
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -43,7 +48,7 @@ export default function AIBuddy() {
 
   const handleSend = async (text) => {
     const msg = (text || input).trim();
-    if (!msg) return;
+    if (!msg || isTyping) return;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setIsTyping(true);
@@ -55,42 +60,17 @@ export default function AIBuddy() {
       : '';
 
     try {
-      const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!GEMINI_KEY) throw new Error("Gemini API key is missing from .env");
-
-      const systemPrompt = `You are the CampusLearn AI Study Buddy, an academic assistant for engineering students at Symbiosis Institute of Technology.
-${context ? `Context: ${context}` : ''}
-Instructions:
-1. Be concise, helpful, and academic.
-2. Use Markdown formatting (bold, lists, code blocks).
-3. Focus on helping students understand concepts, not just giving answers.`;
-
-      // Initialize the official Google Generative AI SDK
-      const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: systemPrompt
-      });
-
-      // Format previous messages for the model's history (excluding system prompt)
-      // Gemini expects format: { role: "user" | "model", parts: [{ text: "..." }] }
       const history = messages
-        .filter(m => m.role !== 'system') // if there's any
-        .map(m => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.content }]
-        }));
-
-      const chat = model.startChat({ history });
-      const result = await chat.sendMessage(msg);
-      const aiText = result.response.text();
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-20)
+        .map(m => ({ role: m.role, content: m.content }));
+      const aiText = await requestAI({ message: msg, context, history });
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
     } catch (err) {
-      // Graceful fallback message
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `**Connection Error** — I couldn't reach my brain right now 🧠\n\n_${err.message}_\n\nPlease check your internet connection and try again.`,
+        content: `**Mini Agent couldn't respond.**\n\n${err.message || 'Please check your connection and try again.'}`,
       }]);
     } finally {
       setIsTyping(false);
@@ -100,7 +80,7 @@ Instructions:
   const clearChat = () => {
     const initial = [{
       role: 'assistant',
-      content: "Chat cleared! I'm ready to help you study. What topic shall we tackle? 📚",
+      content: "Chat cleared! Mini Agent is ready to help you study. What topic shall we tackle? 📚",
     }];
     setMessages(initial);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
@@ -121,9 +101,11 @@ Instructions:
           >
             <button
               onClick={() => setIsOpen(true)}
+              aria-label="Open Mini Agent"
               className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:shadow-indigo-500/50 transition-shadow relative"
             >
-              <FaMagic />
+              <span aria-hidden="true">🤖</span>
+              <FaHeart className="absolute bottom-2 right-2 text-[9px] text-pink-200" />
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
             </button>
           </motion.div>
@@ -146,12 +128,12 @@ Instructions:
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between text-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <FaRobot className="text-xl" />
+                  <span className="text-2xl" aria-hidden="true">🧸</span>
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm leading-tight">AI Study Buddy</h3>
+                  <h3 className="font-extrabold text-sm leading-tight">Mini Agent</h3>
                   <p className="text-[10px] text-indigo-200 font-medium flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Gemini 1.5 Flash
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Groq · GPT-OSS 120B
                   </p>
                 </div>
               </div>
@@ -183,7 +165,7 @@ Instructions:
                 >
                   {msg.role === 'assistant' && (
                     <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs mr-2 mt-1 shrink-0">
-                      🤖
+                      🧸
                     </div>
                   )}
                   <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
@@ -207,7 +189,7 @@ Instructions:
               {isTyping && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                   <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs mr-2 mt-1 shrink-0">
-                    🤖
+                    🧸
                   </div>
                   <div className={`rounded-2xl rounded-bl-sm px-4 py-4 flex gap-1 ${dm ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'}`}>
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../util/supabase';
+import { requestAI } from '../util/ai';
 import { useAuth } from '../context/AuthContext';
 
 export default function SubmissionSection({ subjectId, dm }) {
@@ -14,8 +15,10 @@ export default function SubmissionSection({ subjectId, dm }) {
   const [isUploading, setIsUploading] = useState(false);
   const [gradingId, setGradingId] = useState(null);
   const [aiFeedback, setAiFeedback] = useState({});
+  const [aiErrors, setAiErrors] = useState({});
   const [authScanId, setAuthScanId] = useState(null);
-  const [authReport, setAuthReport] = useState({});
+  const [authFeedback, setAuthFeedback] = useState({});
+  const [authErrors, setAuthErrors] = useState({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -147,56 +150,34 @@ export default function SubmissionSection({ subjectId, dm }) {
 
   const handleAIGrade = async (sub) => {
     setGradingId(sub.id);
+    setAiErrors(prev => ({ ...prev, [sub.id]: null }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          message: `Act as a strict but fair university professor. I am a student submitting an assignment titled "${sub.title}" (${sub.fileName}). Give me a simulated grade out of 10 and 3 bullet points of constructive feedback.`,
-          context: 'You are CampusLearn Pro AI Grading Assistant.'
-        })
+      const text = await requestAI({
+        message: `Act as a strict but fair university professor. I am a student submitting an assignment titled "${sub.title}" (${sub.fileName}). Give me a simulated grade out of 10 and 3 bullet points of constructive feedback. State that this estimate is based only on the title and file name because you cannot inspect the submitted file.`,
+        context: 'You are CampusLearn Pro AI Grading Assistant.',
       });
-      const data = await res.json();
-      if (data.text) setAiFeedback(prev => ({ ...prev, [sub.id]: data.text }));
+      setAiFeedback(prev => ({ ...prev, [sub.id]: text }));
     } catch (e) {
-      setAiFeedback(prev => ({ ...prev, [sub.id]: 'Error connecting to AI.' }));
+      setAiErrors(prev => ({ ...prev, [sub.id]: e.message || 'AI service unavailable.' }));
+    } finally {
+      setGradingId(null);
     }
-    setGradingId(null);
   };
 
   const handleAuthScan = async (sub) => {
     setAuthScanId(sub.id);
+    setAuthErrors(prev => ({ ...prev, [sub.id]: null }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          message: `Act as an advanced Plagiarism and AI detection engine. Generate a realistic simulated authenticity report for an assignment titled "${sub.title}". Return exactly a JSON object with "ai_probability" and "plagiarism_score" (0-100). No other text.`,
-          context: 'You are the CampusLearn Pro Authenticity Scanner.'
-        })
+      const text = await requestAI({
+        message: `An assignment titled "${sub.title}" was uploaded as "${sub.fileName}". Explain that you cannot inspect the uploaded document or verify plagiarism from its title or file name. Give the student a short, practical checklist for reviewing citation quality and originality themselves. Do not generate probability scores.`,
+        context: 'You are the CampusLearn Pro academic integrity guide.',
       });
-      const data = await res.json();
-      let parsed = { ai_probability: 25, plagiarism_score: 5 };
-      try {
-        const text = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
-        parsed = JSON.parse(text);
-      } catch {
-        parsed.ai_probability = Math.floor(Math.random() * 40);
-        parsed.plagiarism_score = Math.floor(Math.random() * 20);
-      }
-      setAuthReport(prev => ({ ...prev, [sub.id]: parsed }));
+      setAuthFeedback(prev => ({ ...prev, [sub.id]: text }));
     } catch (e) {
-      setAuthReport(prev => ({ ...prev, [sub.id]: { ai_probability: 0, plagiarism_score: 0 } }));
+      setAuthErrors(prev => ({ ...prev, [sub.id]: e.message || 'AI service unavailable.' }));
+    } finally {
+      setAuthScanId(null);
     }
-    setAuthScanId(null);
   };
 
   if (!user) {
@@ -362,7 +343,7 @@ export default function SubmissionSection({ subjectId, dm }) {
                           {gradingId === sub.id ? <><div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /> Analyzing...</> : <><FaMagic className="text-amber-500" /> AI Pre-Grade</>}
                         </button>
                       )}
-                      {!authReport[sub.id] && (
+                      {!authFeedback[sub.id] && (
                         <button onClick={() => handleAuthScan(sub)} disabled={authScanId === sub.id}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${dm ? 'bg-rose-900/40 text-rose-400 hover:bg-rose-900/60' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'}`}>
                           {authScanId === sub.id ? <><div className="w-3 h-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" /> Scanning...</> : <><FaSearch className="text-rose-500" /> Auth Scan</>}
@@ -378,33 +359,35 @@ export default function SubmissionSection({ subjectId, dm }) {
                   {aiFeedback[sub.id] && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                       className={`mt-4 p-4 rounded-xl border ${dm ? 'bg-gray-800/50 border-indigo-900/50' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                      <div className="flex items-center gap-2 mb-2 font-bold text-indigo-600"><FaRobot /> CampusLearn Pro: AI Feedback</div>
+                      <div className="flex items-center gap-2 mb-2 font-bold text-indigo-600"><FaRobot /> Mini Agent: Indicative Feedback</div>
                       <div className={`text-sm prose prose-sm max-w-none ${dm ? 'prose-invert text-gray-300' : 'text-gray-700'}`}>
                         <ReactMarkdown>{aiFeedback[sub.id]}</ReactMarkdown>
                       </div>
                     </motion.div>
                   )}
+                  {aiErrors[sub.id] && (
+                    <p role="alert" className="mt-3 text-sm text-red-500">
+                      Unable to get AI feedback: {aiErrors[sub.id]}
+                    </p>
+                  )}
 
                   {/* Authenticity Report */}
-                  {authReport[sub.id] && (
+                  {authFeedback[sub.id] && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                       className={`mt-4 p-4 rounded-xl border ${dm ? 'bg-rose-900/10 border-rose-900/30' : 'bg-rose-50/50 border-rose-100'}`}>
-                      <div className="flex items-center gap-2 mb-4 font-bold text-rose-600"><FaShieldAlt /> Authenticity Report</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                          { label: 'AI Written Probability', value: authReport[sub.id].ai_probability, threshold: 40 },
-                          { label: 'Plagiarism / Similarity', value: authReport[sub.id].plagiarism_score, threshold: 20 },
-                        ].map(({ label, value, threshold }) => (
-                          <div key={label} className={`p-4 rounded-lg border ${dm ? 'bg-gray-800/80 border-gray-700' : 'bg-white border-gray-100'}`}>
-                            <div className={`text-xs font-bold uppercase mb-1 tracking-wider ${dm ? 'text-gray-400' : 'text-gray-500'}`}>{label}</div>
-                            <div className={`text-3xl font-black ${value > threshold ? 'text-rose-500' : 'text-emerald-500'}`}>{value}%</div>
-                            <div className="w-full bg-gray-200/50 rounded-full h-2 mt-3">
-                              <div className={`h-2 rounded-full ${value > threshold ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${value}%` }} />
-                            </div>
-                          </div>
-                        ))}
+                      <div className="flex items-center gap-2 mb-2 font-bold text-rose-600"><FaShieldAlt /> Academic Integrity Guidance</div>
+                      <p className={`text-xs mb-3 ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Mini Agent cannot inspect the uploaded file or perform a verified plagiarism scan.
+                      </p>
+                      <div className={`text-sm prose prose-sm max-w-none ${dm ? 'prose-invert text-gray-300' : 'text-gray-700'}`}>
+                        <ReactMarkdown>{authFeedback[sub.id]}</ReactMarkdown>
                       </div>
                     </motion.div>
+                  )}
+                  {authErrors[sub.id] && (
+                    <p role="alert" className="mt-3 text-sm text-red-500">
+                      Unable to get guidance: {authErrors[sub.id]}
+                    </p>
                   )}
                 </motion.div>
               ))}

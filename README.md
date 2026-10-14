@@ -16,7 +16,7 @@ CampusLearn is a modern academic platform designed for engineering students, tea
 - React + Vite
 - Tailwind CSS
 - Supabase for auth and database
-- Google Gemini API for AI assistant features
+- LangChain + Groq (`openai/gpt-oss-120b`) for AI assistant features
 - Framer Motion for UI interactions
 
 ## Project Structure
@@ -34,7 +34,7 @@ Before running the app, make sure you have:
 - Node.js 18+
 - npm
 - A Supabase project
-- A Gemini API key
+- A Groq API key
 
 ## Environment Setup
 
@@ -49,9 +49,19 @@ Before running the app, make sure you have:
    ```env
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   VITE_GEMINI_API_KEY=your-gemini-api-key
    SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
    ```
+
+   `SUPABASE_SERVICE_ROLE_KEY` is for trusted server-side scripts only. Never prefix private keys with `VITE_` or expose them in browser code.
+
+## AI Assistant Setup
+
+Mini Agent uses LangChain with Groq's `openai/gpt-oss-120b` model in the `ai-chat` Supabase Edge Function. Configure the provider key as a Supabase secret; do not put it in the frontend `.env` file:
+
+```bash
+supabase secrets set GROQ_API_KEY=your-groq-api-key
+supabase functions deploy ai-chat
+```
 
 ## Database Setup
 
@@ -97,7 +107,7 @@ npm run lint
 
 ## Notes
 
-This project is intended to be used with a configured Supabase backend and valid API credentials. Without the required environment variables and database schema, the app will not function correctly.
+This project is intended to be used with a configured Supabase backend and valid API credentials. Without the required environment variables, the `GROQ_API_KEY` Supabase secret, and database schema, the app will not function correctly.
 
 ## License
 

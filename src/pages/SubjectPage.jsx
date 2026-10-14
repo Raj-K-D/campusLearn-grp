@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../util/supabase';
+import { requestAI } from '../util/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaArrowLeft, FaFilePdf, FaTv, FaBrain,
@@ -64,29 +65,17 @@ export default function SubjectPage() {
     setIsGeneratingQuiz(true);
     setAiQuizOutput('');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          message: `Generate a 3-question multiple choice mock exam for the subject: "${subject?.title}". Format it clearly in Markdown. Do NOT include the answers immediately. Provide an "Answer Key" at the very bottom. Make the questions difficult and university-level.`,
-          context: "You are the CampusLearn Pro AI Exam Generator."
-        })
+      const text = await requestAI({
+        message: `Generate a 3-question multiple choice mock exam for the subject: "${subject?.title}". Format it clearly in Markdown. Do NOT include the answers immediately. Provide an "Answer Key" at the very bottom. Make the questions difficult and university-level.`,
+        context: 'You are the CampusLearn Pro AI Exam Generator.',
       });
-      const data = await res.json();
-      if (data.text) {
-        setAiQuizOutput(data.text);
-      } else {
-        setAiQuizOutput("Failed to generate quiz. Try again later.");
-      }
+      setAiQuizOutput(text);
     } catch (e) {
       console.error(e);
-      setAiQuizOutput("Error connecting to AI.");
+      setAiQuizOutput(`Unable to generate the quiz: ${e.message || 'AI service unavailable.'}`);
+    } finally {
+      setIsGeneratingQuiz(false);
     }
-    setIsGeneratingQuiz(false);
   };
 
   const markTabVisited = (tabId) => {

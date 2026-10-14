@@ -1,8 +1,20 @@
 {
   "name": "campuslearn",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
+  "description": "CampusLearn is a modern academic platform designed for engineering students, teachers, coordinators, and administrators. It brings study resources, student dashboards, role-based access, AI assistance, and academic management tools into a single web app.",
+  "homepage": "https://github.com/Raj-K-D/campusLearn-grp#readme",
+  "bugs": {
+    "url": "https://github.com/Raj-K-D/campusLearn-grp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Raj-K-D/campusLearn-grp.git"
+  },
+  "license": "ISC",
+  "author": "",
   "type": "module",
+  "main": "eslint.config.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,10 +22,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^1.2.17",
+    "@langchain/groq": "^1.3.1",
+    "@langchain/langgraph": "^1.5.0",
     "@supabase/supabase-js": "^2.93.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.30.0",
+    "langchain": "^1.5.16",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.10.1",
@@ -22,15 +37,17 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.14",
-    "eslint": "^8.45.0",
+    "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.32.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.4.3",
+    "globals": "^16.5.0",
     "postcss": "^8.4.24",
     "tailwindcss": "^3.3.0",
     "vite": "^4.4.5"
