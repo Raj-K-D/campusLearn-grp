@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../util/supabase';
 import { requestAI } from '../util/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FaArrowLeft, FaFilePdf, FaTv, FaBrain,
+  FaArrowLeft, FaFilePdf, FaTv, FaBrain, FaTimes,
   FaFolderOpen, FaFilePowerpoint, FaBook, FaLock,
   FaMoon, FaSun, FaSignOutAlt, FaCalculator, FaDownload,
   FaClipboardList, FaBookOpen, FaFileAlt, FaFlask,
@@ -18,6 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import CGPACalculator from '../components/CGPACalculator';
 import SubmissionSection from '../components/SubmissionSection';
 import { LOCAL_SUBJECTS } from '../data/localSubjects';
+import { extractPdfText } from '../util/pdf';
 
 export default function SubjectPage() {
   const { id } = useParams();
@@ -43,6 +44,8 @@ export default function SubjectPage() {
   const [uploadForm, setUploadForm] = useState({ title: '', url: '', type: 'note', file: null, visibility: 'SUBJECT_WIDE' });
   const [uploading, setUploading] = useState(false);
   const [refetchCount, setRefetchCount] = useState(0);
+  const [pdfSummary, setPdfSummary] = useState(null);
+  const pdfSummaryRequest = useRef(0);
 
   // Listen for manual refetch events (e.g. after inline delete)
   useEffect(() => {
@@ -76,6 +79,47 @@ export default function SubjectPage() {
     } finally {
       setIsGeneratingQuiz(false);
     }
+  };
+
+  const summarizePdf = async (item, url) => {
+    const requestId = pdfSummaryRequest.current + 1;
+    pdfSummaryRequest.current = requestId;
+    setPdfSummary({ requestId, title: item.title || 'PDF notes', url, text: '', status: 'loading', error: '' });
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Could not download this PDF (HTTP ${response.status}).`);
+      const text = await extractPdfText(new Uint8Array(await response.arrayBuffer()));
+      if (pdfSummaryRequest.current !== requestId) return;
+
+      setPdfSummary((current) => current?.requestId === requestId
+        ? { ...current, status: 'summarizing' }
+        : current
+      );
+      await requestAI({
+        message: `Summarize the attached PDF notes and explain each main concept. Organize the summary into clear headings, define important terms, include simple examples, and highlight the key takeaways.`,
+        context: `The student opened these notes from the ${subject?.title || 'subject'} Notes screen.`,
+        pdfDocuments: [{ name: item.title || 'PDF notes', text }],
+        onToken: (token) => setPdfSummary((current) => current?.requestId === requestId
+          ? { ...current, text: current.text + token }
+          : current
+        ),
+      });
+      setPdfSummary((current) => current?.requestId === requestId
+        ? { ...current, status: 'done' }
+        : current
+      );
+    } catch (error) {
+      setPdfSummary((current) => current?.requestId === requestId
+        ? { ...current, status: 'error', error: error.message || 'Could not summarize this PDF.' }
+        : current
+      );
+    }
+  };
+
+  const closePdfSummary = () => {
+    pdfSummaryRequest.current += 1;
+    setPdfSummary(null);
   };
 
   const markTabVisited = (tabId) => {
@@ -633,7 +677,15 @@ export default function SubjectPage() {
                             </div>
                             <div className="flex gap-2 flex-shrink-0 ml-3 items-center">
                               {/* PDFs open in browser; PPTX/DOCX need download */}
-                              {isPdf ? (
+                              {isPdf && activeTab === 'note' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => summarizePdf(item, url)}
+                                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap"
+                                >
+                                  ✨ Summarize
+                                </button>
+                              ) : isPdf ? (
                                 <a href={url} target="_blank" rel="noreferrer"
                                   className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">
                                   📄 Open
@@ -663,6 +715,51 @@ export default function SubjectPage() {
         </div>
       </div>
  
+      {pdfSummary && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/60 p-4 flex items-center justify-center"
+          onClick={closePdfSummary}
+        >
+          <motion.section
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdf-summary-title"
+            onClick={(event) => event.stopPropagation()}
+            className={`w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl ${dm ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}
+          >
+            <header className={`flex items-center justify-between gap-4 px-5 py-4 border-b ${dm ? 'border-gray-700' : 'border-gray-100'}`}>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase text-indigo-500">Gooloogulu PDF summary</p>
+                <h2 id="pdf-summary-title" className="font-bold truncate">{pdfSummary.title}</h2>
+              </div>
+              <button type="button" onClick={closePdfSummary} aria-label="Close summary" className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center hover:bg-gray-500/10">
+                <FaTimes />
+              </button>
+            </header>
+            <div className="overflow-y-auto p-5 min-h-40">
+              {pdfSummary.status === 'loading' && <p className="text-sm text-gray-500">Reading the PDF…</p>}
+              {pdfSummary.status === 'error' && <p role="alert" className="text-sm text-red-500">{pdfSummary.error}</p>}
+              {pdfSummary.text && (
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-bold prose-p:leading-relaxed">
+                  <ReactMarkdown>{pdfSummary.text}</ReactMarkdown>
+                  {pdfSummary.status === 'summarizing' && <span className="inline-block w-2 h-4 ml-1 bg-indigo-500 animate-pulse align-middle" />}
+                </div>
+              )}
+              {pdfSummary.status === 'summarizing' && !pdfSummary.text && <p className="text-sm text-gray-500">Gooloogulu is building your summary…</p>}
+            </div>
+            <footer className={`flex justify-end gap-2 px-5 py-4 border-t ${dm ? 'border-gray-700' : 'border-gray-100'}`}>
+              <a href={pdfSummary.url} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-lg text-sm font-semibold border border-indigo-500 text-indigo-600 hover:bg-indigo-500/10">
+                Open PDF
+              </a>
+              <button type="button" onClick={closePdfSummary} className="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">
+                Done
+              </button>
+            </footer>
+          </motion.section>
+        </div>
+      )}
       {showCalc && <CGPACalculator onClose={() => setShowCalc(false)} darkMode={dm} />}
     </div>
   );

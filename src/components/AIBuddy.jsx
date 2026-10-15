@@ -4,6 +4,7 @@ import { FaTimes, FaPaperPlane, FaTrash, FaHeart, FaPaperclip } from 'react-icon
 import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../context/ThemeContext';
 import { requestAI } from '../util/ai';
+import { extractPdfText } from '../util/pdf';
 
 const STORAGE_KEY = 'cl_ai_chat_history';
 
@@ -53,8 +54,13 @@ export default function AIBuddy() {
   const handleSend = async (text) => {
     const msg = (text || input).trim();
     if (!msg || isTyping) return;
+    const assistantMessageId = crypto.randomUUID();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: msg },
+      { id: assistantMessageId, role: 'assistant', content: '' },
+    ]);
     setIsTyping(true);
 
     // Detect subject context from URL
@@ -68,15 +74,33 @@ export default function AIBuddy() {
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .slice(-20)
         .map(m => ({ role: m.role, content: m.content }));
-      const notes = attachedNotes.map(({ name, content }) => `--- ${name} ---\n${content}`).join('\n\n');
-      const aiText = await requestAI({ message: msg, context, notes, history });
-
-      setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
+      const notes = attachedNotes
+        .filter((note) => !note.isPdf)
+        .map(({ name, content }) => `--- ${name} ---\n${content}`)
+        .join('\n\n');
+      const pdfDocuments = attachedNotes
+        .filter((note) => note.isPdf)
+        .map(({ name, content }) => ({ name, text: content }));
+      await requestAI({
+        message: msg,
+        context,
+        notes,
+        pdfDocuments,
+        history,
+        onToken: (token) => setMessages((prev) => prev.map((item) =>
+          item.id === assistantMessageId ? { ...item, content: item.content + token } : item
+        )),
+      });
     } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `**Gooloogulu couldn't respond.**\n\n${err.message || 'Please check your connection and try again.'}`,
-      }]);
+      setMessages((prev) => prev.map((item) => item.id === assistantMessageId
+        ? {
+          ...item,
+          content: item.content
+            ? `${item.content}\n\n*Gooloogulu's response was interrupted.*`
+            : `**Gooloogulu couldn't respond.**\n\n${err.message || 'Please check your connection and try again.'}`,
+        }
+        : item
+      ));
     } finally {
       setIsTyping(false);
     }
@@ -90,10 +114,17 @@ export default function AIBuddy() {
 
     try {
       const newNotes = await Promise.all(files.map(async (file) => {
-        if (!/\.(txt|md|csv)$/i.test(file.name)) {
-          throw new Error('Attach TXT, Markdown, or CSV notes.');
+        if (/\.pdf$/i.test(file.name)) {
+          return {
+            name: file.name,
+            content: await extractPdfText(new Uint8Array(await file.arrayBuffer())),
+            isPdf: true,
+          };
         }
-        return { name: file.name, content: await file.text() };
+        if (!/\.(txt|md|csv)$/i.test(file.name)) {
+          throw new Error('Attach a PDF, TXT, Markdown, or CSV file.');
+        }
+        return { name: file.name, content: await file.text(), isPdf: false };
       }));
       const combinedLength = [...attachedNotes, ...newNotes]
         .reduce((total, note) => total + note.content.length, 0);
@@ -215,7 +246,7 @@ export default function AIBuddy() {
                 </motion.div>
               ))}
 
-              {isTyping && (
+              {isTyping && messages[messages.length - 1]?.content === '' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                   <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs mr-2 mt-1 shrink-0">
                     🧸
@@ -278,7 +309,7 @@ export default function AIBuddy() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+                accept=".pdf,.txt,.md,.csv,application/pdf,text/plain,text/markdown,text/csv"
                 multiple
                 onChange={handleAttachNotes}
                 className="hidden"
@@ -291,7 +322,7 @@ export default function AIBuddy() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  title="Attach notes (TXT, Markdown, or CSV)"
+                  title="Attach notes or a PDF"
                   aria-label="Attach notes"
                   className="ml-2 w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
                 >
