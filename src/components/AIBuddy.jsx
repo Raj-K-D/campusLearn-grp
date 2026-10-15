@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaTimes, FaPaperPlane, FaTrash, FaHeart } from 'react-icons/fa';
+import { FaTimes, FaPaperPlane, FaTrash, FaHeart, FaPaperclip } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../context/ThemeContext';
 import { requestAI } from '../util/ai';
@@ -13,6 +13,7 @@ const QUICK_PROMPTS = [
   'Explain this like I\'m 5 🎯',
   'What are common exam mistakes? ⚠️',
 ];
+const MAX_NOTES_LENGTH = 100000;
 
 export default function AIBuddy() {
   const { darkMode } = useTheme();
@@ -24,17 +25,20 @@ export default function AIBuddy() {
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : [{
         role: 'assistant',
-        content: "Hi! I'm **Mini Agent** 🧸💜, your CampusLearn study companion!\n\nI can help you:\n- Summarize notes and concepts\n- Generate practice questions\n- Explain difficult topics\n- Clear doubts before exams\n\nWhat are we studying today?",
+        content: "Hi! I'm **Gooloogulu** 🧸, your CampusLearn study buddy!\n\nI can explain tricky topics, answer all parts of your questions, make practice questions, and summarize notes you attach. What are we studying today?",
       }];
     } catch {
       return [{
         role: 'assistant',
-        content: "Hi! I'm **Mini Agent** 🧸💜, your CampusLearn study companion!\n\nWhat are we studying today?",
+        content: "Hi! I'm **Gooloogulu** 🧸, your CampusLearn study buddy! What are we studying today?",
       }];
     }
   });
   const [input, setInput] = useState('');
+  const [attachedNotes, setAttachedNotes] = useState([]);
+  const [attachmentError, setAttachmentError] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Persist chat history
@@ -64,23 +68,48 @@ export default function AIBuddy() {
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .slice(-20)
         .map(m => ({ role: m.role, content: m.content }));
-      const aiText = await requestAI({ message: msg, context, history });
+      const notes = attachedNotes.map(({ name, content }) => `--- ${name} ---\n${content}`).join('\n\n');
+      const aiText = await requestAI({ message: msg, context, notes, history });
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `**Mini Agent couldn't respond.**\n\n${err.message || 'Please check your connection and try again.'}`,
+        content: `**Gooloogulu couldn't respond.**\n\n${err.message || 'Please check your connection and try again.'}`,
       }]);
     } finally {
       setIsTyping(false);
     }
   };
 
+  const handleAttachNotes = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    setAttachmentError('');
+    if (!files.length) return;
+
+    try {
+      const newNotes = await Promise.all(files.map(async (file) => {
+        if (!/\.(txt|md|csv)$/i.test(file.name)) {
+          throw new Error('Attach TXT, Markdown, or CSV notes.');
+        }
+        return { name: file.name, content: await file.text() };
+      }));
+      const combinedLength = [...attachedNotes, ...newNotes]
+        .reduce((total, note) => total + note.content.length, 0);
+      if (combinedLength > MAX_NOTES_LENGTH) {
+        throw new Error('Attached notes must total 100,000 characters or fewer.');
+      }
+      setAttachedNotes((current) => [...current, ...newNotes]);
+    } catch (error) {
+      setAttachmentError(error.message || 'Could not read that file.');
+    }
+  };
+
   const clearChat = () => {
     const initial = [{
       role: 'assistant',
-      content: "Chat cleared! Mini Agent is ready to help you study. What topic shall we tackle? 📚",
+      content: "Chat cleared! Gooloogulu is ready to help you study. What topic shall we tackle? 📚",
     }];
     setMessages(initial);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
@@ -101,7 +130,7 @@ export default function AIBuddy() {
           >
             <button
               onClick={() => setIsOpen(true)}
-              aria-label="Open Mini Agent"
+              aria-label="Open Gooloogulu"
               className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:shadow-indigo-500/50 transition-shadow relative"
             >
               <span aria-hidden="true">🤖</span>
@@ -131,7 +160,7 @@ export default function AIBuddy() {
                   <span className="text-2xl" aria-hidden="true">🧸</span>
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm leading-tight">Mini Agent</h3>
+                  <h3 className="font-extrabold text-sm leading-tight">Gooloogulu</h3>
                   <p className="text-[10px] text-indigo-200 font-medium flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Groq · GPT-OSS 120B
                   </p>
@@ -220,14 +249,57 @@ export default function AIBuddy() {
               </div>
             )}
 
+            {attachedNotes.length > 0 && (
+              <div className={`px-3 pt-2 flex flex-wrap gap-1.5 ${dm ? 'bg-gray-950' : 'bg-white'}`}>
+                {attachedNotes.map((note, index) => (
+                  <button
+                    key={`${note.name}-${index}`}
+                    type="button"
+                    onClick={() => setAttachedNotes((current) => current.filter((_, i) => i !== index))}
+                    title={`Remove ${note.name}`}
+                    className={`max-w-full truncate text-[11px] px-2 py-1 rounded-lg border ${dm ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}
+                  >
+                    {note.name} ×
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handleSend('Please summarize my attached notes, highlighting the key ideas and important details.')}
+                  disabled={isTyping}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                >
+                  Summarize notes
+                </button>
+              </div>
+            )}
+
             {/* Input Area */}
             <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className={`p-4 shrink-0 border-t ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+                multiple
+                onChange={handleAttachNotes}
+                className="hidden"
+                aria-label="Attach study notes"
+              />
+              {attachmentError && <p role="alert" className="mb-2 text-xs text-red-500">{attachmentError}</p>}
               <div className={`flex items-center gap-2 rounded-2xl border pr-2 overflow-hidden transition-colors ${
                 dm ? 'bg-gray-900 border-gray-800 focus-within:border-indigo-500' : 'bg-gray-50 border-gray-200 focus-within:border-indigo-400'
               }`}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach notes (TXT, Markdown, or CSV)"
+                  aria-label="Attach notes"
+                  className="ml-2 w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
+                >
+                  <FaPaperclip />
+                </button>
                 <input
                   type="text"
-                  placeholder="Ask anything about your subjects…"
+                  placeholder="Ask Gooloogulu anything…"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   className="flex-1 bg-transparent py-3 px-4 outline-none text-sm"
