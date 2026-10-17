@@ -1,4 +1,5 @@
-const M = '/materials/';
+const SUPABASE_STORAGE_URL = '/materials/';
+const M = SUPABASE_STORAGE_URL;
 // Subject type reference — all 14 tab types:
 // assignment | book | handout | experiential | extra | lesson_plan |
 // note | participative | ppt | problem_solving | question_bank | question_papers | submission | videos

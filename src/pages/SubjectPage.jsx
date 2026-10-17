@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../util/supabase';
 import { requestAI } from '../util/ai';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,13 +19,19 @@ import CGPACalculator from '../components/CGPACalculator';
 import SubmissionSection from '../components/SubmissionSection';
 import { LOCAL_SUBJECTS } from '../data/localSubjects';
 import { extractPdfText } from '../util/pdf';
+import { resolveResourceUrl } from '../util/resourceUrls';
 
 export default function SubjectPage() {
   const { id } = useParams();
   const { user, isCoordinator, isAdmin, isFaculty, signOut, isCoordinatorOf } = useAuth();
   const { darkMode, setDarkMode } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const dm = darkMode;
+
+  const fromCoordinator = location.state?.from === 'coordinator';
+  const backTarget = fromCoordinator ? '/coordinator' : (location.state?.from === 'admin' ? '/admin' : (isCoordinator ? '/coordinator' : (isAdmin ? '/admin' : '/dashboard')));
+  const backLabel = fromCoordinator ? 'Coordinator' : (location.state?.from === 'admin' ? 'Admin' : (isCoordinator ? 'Coordinator' : (isAdmin ? 'Admin' : 'Dashboard')));
  
   const [peekMode, setPeekMode] = useState(false);
   const isFacultyActive = () => {
@@ -82,12 +88,16 @@ export default function SubjectPage() {
   };
 
   const summarizePdf = async (item, url) => {
+    const resolvedUrl = resolveResourceUrl(url);
     const requestId = pdfSummaryRequest.current + 1;
     pdfSummaryRequest.current = requestId;
-    setPdfSummary({ requestId, title: item.title || 'PDF notes', url, text: '', status: 'loading', error: '' });
+    setPdfSummary({ requestId, title: item.title || 'PDF notes', url: resolvedUrl, text: '', status: 'loading', error: '' });
 
     try {
-      const response = await fetch(url);
+      let response = await fetch(resolvedUrl);
+      if (!response.ok && resolvedUrl !== url) {
+        response = await fetch(url.replace(/ /g, '%20'));
+      }
       if (!response.ok) throw new Error(`Could not download this PDF (HTTP ${response.status}).`);
       const text = await extractPdfText(new Uint8Array(await response.arrayBuffer()));
       if (pdfSummaryRequest.current !== requestId) return;
@@ -158,8 +168,8 @@ export default function SubjectPage() {
       if (data) {
         setSubject(data);
       } else {
-        // Fall back to local static data
-        const local = LOCAL_SUBJECTS.find(s => s.id === id);
+        // Fall back to local static data matching by ID or title
+        const local = LOCAL_SUBJECTS.find(s => s.id === id || s.title?.toLowerCase().trim() === String(id).toLowerCase().trim());
         if (local) setSubject(local);
         else if (error) console.error('Error fetching subject:', error);
       }
@@ -232,7 +242,11 @@ export default function SubjectPage() {
 
       // Always fallback to local static data if Supabase returns nothing
       if (data.length === 0) {
-        const local = LOCAL_SUBJECTS.find(s => s.id === id);
+        const local = LOCAL_SUBJECTS.find(s => 
+          s.id === id || 
+          (subject?.title && s.title?.toLowerCase().trim() === subject.title.toLowerCase().trim()) ||
+          (subject?.code && s.code?.toLowerCase().trim() === subject.code.toLowerCase().trim())
+        );
         data = (local?.resources || []).filter(r => r.type === activeTab);
       }
 
@@ -294,7 +308,7 @@ export default function SubjectPage() {
     <div className={`min-h-screen font-sans ${dm ? 'bg-gray-950' : 'bg-gray-50'} ${isFaculty() ? 'pt-[42px]' : ''}`}>
       {/* Faculty Peek Mode Banner */}
       {isFaculty() && (
-        <div className={`fixed top-0 left-0 w-full py-2.5 px-6 text-center text-xs font-bold flex items-center justify-center gap-3 z-50 shadow-md ${
+        <div className={`fixed top-0 left-0 w-full py-2.5 px-6 text-xs font-bold flex flex-wrap items-center justify-between gap-3 z-50 shadow-md ${
           peekMode 
             ? 'bg-amber-500 text-white' 
             : dm ? 'bg-gray-800 border-b border-gray-700 text-gray-300' : 'bg-gray-100 border-b border-gray-200 text-gray-700'
@@ -304,16 +318,32 @@ export default function SubjectPage() {
               ? '👁️ Viewing page exactly as a Student (Peek Mode Active)' 
               : '🎓 Coordinator View: You can see all TA Papers and restricted material.'}
           </span>
-          <button 
-            onClick={() => setPeekMode(!peekMode)}
-            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
-              peekMode 
-                ? 'bg-white text-amber-600 hover:bg-gray-100' 
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }`}
-          >
-            {peekMode ? 'Exit Student View' : 'Peek as Student'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setPeekMode(!peekMode)}
+              className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                peekMode 
+                  ? 'bg-white text-amber-600 hover:bg-gray-100' 
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
+            >
+              {peekMode ? 'Exit Student View' : 'Peek as Student'}
+            </button>
+            <button
+              onClick={() => navigate(backTarget)}
+              className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-black/20 hover:bg-black/35 text-white transition"
+            >
+              ← Back to {backLabel} Portal
+            </button>
+            {isAdmin && isCoordinator && (
+              <button
+                onClick={() => navigate(fromCoordinator ? '/admin' : '/coordinator')}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-black/10 hover:bg-black/25 text-white/80 hover:text-white transition"
+              >
+                Go to {fromCoordinator ? 'Admin' : 'Coordinator'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -323,11 +353,40 @@ export default function SubjectPage() {
       } ${
         dm ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-gray-100'
       }`}>
-        <Link to="/dashboard" className={`flex items-center gap-2 text-sm font-medium transition ${
-          dm ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
-        }`}>
-          <FaArrowLeft /> Dashboard
-        </Link>
+        {(!isCoordinator && !isAdmin) ? (
+          <Link to="/dashboard" className={`flex items-center gap-2 text-sm font-medium transition ${
+            dm ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
+          }`}>
+            <FaArrowLeft /> Dashboard
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(backTarget)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition"
+            >
+              <FaArrowLeft /> Back to {backLabel}
+            </button>
+            {isAdmin && isCoordinator && (
+              <button
+                onClick={() => navigate(fromCoordinator ? '/admin' : '/coordinator')}
+                className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition ${
+                  dm ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Switch to {fromCoordinator ? 'Admin' : 'Coordinator'}
+              </button>
+            )}
+            <Link
+              to="/dashboard"
+              className={`text-xs font-semibold px-2 py-1 rounded-lg transition ${
+                dm ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Student View
+            </Link>
+          </div>
+        )}
         <Link to="/" className="text-lg font-extrabold">
           Campus<span className="text-indigo-600">Learn</span>
         </Link>
@@ -621,7 +680,8 @@ export default function SubjectPage() {
                         }
                         return true;
                       }).map((item, i) => {
-                      const url = item.url || item.link || item.resource_url || '';
+                      const rawUrl = item.url || item.link || item.resource_url || '';
+                      const url = resolveResourceUrl(rawUrl);
                       const isPdf  = url.toLowerCase().endsWith('.pdf');
                       const isPpt  = url.toLowerCase().endsWith('.pptx') || url.toLowerCase().endsWith('.ppt');
                       const isDoc  = url.toLowerCase().endsWith('.docx') || url.toLowerCase().endsWith('.doc');

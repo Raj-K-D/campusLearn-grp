@@ -14,9 +14,11 @@ dist-ssr
 .env
 .env*.local
 !.env.example
+SUPABASE_CONFIG.md
 
 # Static large materials
 public/materials/
+scripts/compressed_materials/
 
 # Editor directories and files
 .vscode/*

@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import BatchLinkManager from '../components/BatchLinkManager';
 import CoordinatorManager from '../components/CoordinatorManager';
+import { resolveResourceUrl } from '../util/resourceUrls';
 
 // --- PROFESSIONAL TOAST NOTIFICATION COMPONENT ---
 const Toast = ({ message, type, onClose }) => {
@@ -677,7 +678,7 @@ export default function Admin() {
 
         {/* TAB: COORDINATORS */}
         {activeTab === 'coordinators' && (
-          <CoordinatorManager subjects={subjects} showToast={showToast} />
+          <CoordinatorManager subjects={subjects} resourceCounts={resourceCounts} showToast={showToast} />
         )}
 
         {/* TAB: BATCH LINKS */}
@@ -900,7 +901,7 @@ export default function Admin() {
                           <div className="p-2 bg-gray-100 rounded-lg text-gray-400"><FaBook className="text-sm"/></div>
                           <div>
                             <p className="font-bold text-gray-900 truncate max-w-[250px]">{m.title}</p>
-                            <a href={m.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">View File</a>
+                            <a href={resolveResourceUrl(m.url)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">View File</a>
                           </div>
                         </div>
                       </td>

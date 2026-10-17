@@ -238,12 +238,15 @@ function Landing() {
           <p className={`text-sm ${dm ? 'text-gray-500' : 'text-gray-400'}`}>
             © 2024 CampusLearn — Built with ❤️ for engineering students
           </p>
-          <div className="flex gap-4 text-sm">
+          <div className="flex gap-4 text-xs font-semibold">
             <Link to="/dashboard" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-              Dashboard
+              Student Dashboard
             </Link>
-            <Link to="/login" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-              Login
+            <Link to="/coordinator/login" className={`hover:text-purple-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Coordinator Portal
+            </Link>
+            <Link to="/admin/login" className={`hover:text-blue-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Admin Portal
             </Link>
           </div>
         </div>
@@ -279,24 +282,34 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              {/* Magic link enrollment — no auth required */}
-              <Route path="/enroll/:batchToken" element={<EnrollPage />} />
-              {/* Public subject browser — guests can browse, login needed for quiz/extras */}
-              <Route path="/dashboard" element={<StudentDashboard />} />
-              <Route path="/subject/:id" element={<SubjectPage />} />
-              {/* Admin — requires authentication + is_admin flag */}
-              <Route path="/admin" element={
-                <AdminRoute>
-                  <Admin />
-                </AdminRoute>
-              } />
-              {/* Coordinator — requires is_coordinator or is_admin */}
+              {/* Student Login Routes */}
+              <Route path="/login" element={<Login portal="student" />} />
+              <Route path="/student" element={<Login portal="student" />} />
+              <Route path="/student-login" element={<Login portal="student" />} />
+
+              {/* Coordinator Login & Dashboard Routes */}
+              <Route path="/coordinator-login" element={<Login portal="coordinator" />} />
+              <Route path="/coordinator/login" element={<Login portal="coordinator" />} />
               <Route path="/coordinator" element={
                 <CoordinatorRoute>
                   <CoordinatorDashboard />
                 </CoordinatorRoute>
               } />
+
+              {/* Admin Login & Dashboard Routes */}
+              <Route path="/admin-login" element={<Login portal="admin" />} />
+              <Route path="/admin/login" element={<Login portal="admin" />} />
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <Admin />
+                </AdminRoute>
+              } />
+
+              {/* Magic link enrollment — no auth required */}
+              <Route path="/enroll/:batchToken" element={<EnrollPage />} />
+              {/* Public subject browser — guests can browse, login needed for quiz/extras */}
+              <Route path="/dashboard" element={<StudentDashboard />} />
+              <Route path="/subject/:id" element={<SubjectPage />} />
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>

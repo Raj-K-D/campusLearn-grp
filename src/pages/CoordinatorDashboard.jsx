@@ -8,8 +8,9 @@ import {
   FaCalendarAlt, FaComments, FaPlus, FaTrash, FaCloudUploadAlt,
   FaUsers, FaEdit, FaTachometerAlt, FaUserGraduate, FaInbox,
   FaBook, FaTimes, FaClock, FaExclamationCircle, FaEye, FaMoon, FaSun,
-  FaChevronRight
+  FaChevronRight, FaChevronDown, FaChevronUp, FaExternalLinkAlt
 } from 'react-icons/fa';
+import { resolveResourceUrl } from '../util/resourceUrls';
 
 // ── Toast ─────────────────────────────────────────────────────
 function Toast({ message, type, onClose }) {
@@ -60,11 +61,17 @@ const VISIBILITY_OPTIONS = [
   { id: 'DRAFT', label: 'Draft (hidden)', desc: 'Only visible to you' },
 ];
 
-function UploadModal({ open, onClose, subjects, showToast, onUploaded }) {
+function UploadModal({ open, onClose, subjects, showToast, onUploaded, defaultSubjectId = '' }) {
   const { user } = useAuth();
-  const [form, setForm] = useState({ subject_id: '', type: 'note', title: '', url: '', visibility: 'SUBJECT_WIDE' });
+  const [form, setForm] = useState({ subject_id: defaultSubjectId || '', type: 'note', title: '', url: '', visibility: 'SUBJECT_WIDE' });
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm(f => ({ ...f, subject_id: defaultSubjectId || f.subject_id || '' }));
+    }
+  }, [open, defaultSubjectId]);
 
   if (!open) return null;
 
@@ -230,6 +237,136 @@ function UploadModal({ open, onClose, subjects, showToast, onUploaded }) {
   );
 }
 
+// ── Edit Resource Modal ───────────────────────────────────────
+function EditResourceModal({ open, onClose, resource, showToast, onSaved }) {
+  const [form, setForm] = useState({ title: '', type: 'note', url: '', visibility: 'SUBJECT_WIDE' });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (resource) {
+      setForm({
+        title: resource.title || '',
+        type: resource.type || resource.sub_type || 'note',
+        url: resource.url || resource.resource_url || '',
+        visibility: resource.visibility || 'SUBJECT_WIDE',
+      });
+    }
+  }, [resource, open]);
+
+  if (!open || !resource) return null;
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setLoading(true);
+    const table = resource.sub_type ? 'faculty_workspace' : 'resources';
+    const updatePayload = resource.sub_type
+      ? { title: form.title, sub_type: form.type, resource_url: form.url }
+      : { title: form.title, type: form.type, url: form.url, visibility: form.visibility };
+
+    const { error } = await supabase.from(table).update(updatePayload).eq('id', resource.id);
+    setLoading(false);
+    if (error) {
+      showToast('Error updating resource: ' + error.message, 'error');
+    } else {
+      showToast('Resource updated successfully! ✅', 'success');
+      onSaved();
+      onClose();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto">
+        <div className="px-6 py-4 bg-gray-50 border-b flex justify-between items-center sticky top-0 z-10">
+          <h3 className="font-extrabold text-gray-900 text-lg flex items-center gap-2">
+            <FaEdit className="text-indigo-600" /> Modify Resource
+          </h3>
+          <button onClick={onClose}><FaTimes className="text-gray-400 hover:text-gray-700" /></button>
+        </div>
+        <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+            <input
+              required
+              type="text"
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full p-3 bg-gray-50 border border-gray-300 text-gray-900 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Content Type</label>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {ALL_TYPES.map(t => (
+                <button
+                  type="button"
+                  key={t.id}
+                  onClick={() => setForm({ ...form, type: t.id })}
+                  className={`p-2 rounded-lg text-[10px] sm:text-xs font-bold border transition ${
+                    form.type === t.id
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!resource.sub_type && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Visibility</label>
+              <div className="space-y-2">
+                {VISIBILITY_OPTIONS.map(v => (
+                  <label
+                    key={v.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                      form.visibility === v.id ? 'border-indigo-500 bg-indigo-50 shadow-inner' : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="visibility_edit"
+                      value={v.id}
+                      checked={form.visibility === v.id}
+                      onChange={() => setForm({ ...form, visibility: v.id })}
+                    />
+                    <div>
+                      <p className="font-bold text-sm text-gray-800">{v.label}</p>
+                      <p className="text-xs text-gray-500">{v.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Resource URL</label>
+            <input
+              required
+              type="text"
+              value={form.url}
+              onChange={e => setForm({ ...form, url: e.target.value })}
+              className="w-full p-3 bg-gray-50 border border-gray-300 text-gray-900 rounded-xl outline-none text-xs focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <button
+            disabled={loading}
+            className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-extrabold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2"
+          >
+            {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {loading ? 'Saving Changes...' : 'Save Modifications'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN COORDINATOR DASHBOARD ─────────────────────────────────
 export default function CoordinatorDashboard() {
   const { user, signOut, getCoordinatorSubjects, isCoordinator, isAdmin, refreshProfile } = useAuth();
@@ -250,6 +387,10 @@ export default function CoordinatorDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeUploadSubjectId, setActiveUploadSubjectId] = useState('');
+  const [expandedSubjectId, setExpandedSubjectId] = useState(null);
+  const [contentSubjectFilter, setContentSubjectFilter] = useState('all');
+  const [editingResource, setEditingResource] = useState(null);
   const [toast, setToast] = useState({ message: '', type: '' });
 
   // Timeline form
@@ -267,10 +408,10 @@ export default function CoordinatorDashboard() {
 
   async function fetchData() {
     if (!user || (!isCoordinator && !isAdmin)) return;
-    let mySubjects = getCoordinatorSubjects();
+    let mySubjects = getCoordinatorSubjects() || [];
 
     // Fallback: If not hydrated through context yet, query coordinator_subjects directly
-    if ((!mySubjects || mySubjects.length === 0) && user) {
+    if (mySubjects.length === 0 && user) {
       try {
         const { data: directCoordSubs } = await supabase
           .from('coordinator_subjects')
@@ -284,28 +425,61 @@ export default function CoordinatorDashboard() {
       }
     }
 
-    setSubjects(mySubjects || []);
-
-    // Fetch all available subjects in the database for self-registration
+    // Fetch all available subjects in the database for self-registration or admin access
     const { data: dbSubs } = await supabase.from('subjects').select('*').order('title', { ascending: true });
     setAllDbSubjects(dbSubs || []);
 
+    // If admin has no specific subject assigned, allow them to view all subjects
+    if (isAdmin && mySubjects.length === 0 && dbSubs && dbSubs.length > 0) {
+      mySubjects = dbSubs;
+    }
+
+    setSubjects(mySubjects || []);
+
     if (mySubjects.length > 0) {
       const sIds = mySubjects.map(s => s.id);
-      const [rData, tData, pData, taData, modData, enrData, subData] = await Promise.all([
-        supabase.from('resources').select('*, subjects(title), profiles!uploaded_by(full_name, email)').in('subject_id', sIds).order('created_at', { ascending: false }),
+      const [rData, tData, pData, modData, enrData, subData] = await Promise.all([
+        supabase.from('resources').select('*, subjects(title)').in('subject_id', sIds).order('created_at', { ascending: false }),
         supabase.from('subject_timeline').select('*, subjects(title)').in('subject_id', sIds).order('week_number', { ascending: true }),
-        supabase.from('faculty_workspace').select('*, subjects(title), profiles!author_id(full_name, email)').in('subject_id', sIds).order('created_at', { ascending: false }),
-        supabase.from('faculty_workspace').select('*, subjects(title), profiles!author_id(full_name, email)').in('subject_id', sIds).in('sub_type', ['TA1', 'TA2']).order('created_at', { ascending: false }),
+        supabase.from('faculty_workspace').select('*, subjects(title)').in('subject_id', sIds).order('created_at', { ascending: false }),
         supabase.from('modification_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('enrollments').select('*, profiles!user_id(full_name, email, branch, semester), subjects(title)').in('subject_id', sIds),
+        supabase.from('batch_enrollments').select('*'),
         supabase.from('submissions').select('*').order('submitted_at', { ascending: false }).limit(200),
       ]);
 
-      setResources(rData.data || []);
+      const rawResources = rData.data || [];
+      const rawPosts = pData.data || [];
+
+      // Fetch uploader profiles safely
+      const uploaderIds = [...new Set([
+        ...rawResources.map(r => r.uploaded_by || r.owner_id),
+        ...rawPosts.map(p => p.author_id)
+      ].filter(Boolean))];
+
+      let profMap = {};
+      if (uploaderIds.length > 0) {
+        try {
+          const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', uploaderIds);
+          (profs || []).forEach(p => { profMap[p.id] = p; });
+        } catch (e) {
+          console.warn('Profile enrichment skipped:', e);
+        }
+      }
+
+      const enrichedResources = rawResources.map(r => ({
+        ...r,
+        profiles: profMap[r.uploaded_by || r.owner_id] || null
+      }));
+
+      const enrichedPosts = rawPosts.map(p => ({
+        ...p,
+        profiles: profMap[p.author_id] || null
+      }));
+
+      setResources(enrichedResources);
       setTimeline(tData.data || []);
-      setPosts((pData.data || []).filter(p => !['TA1', 'TA2'].includes(p.sub_type)));
-      setTaPapers(taData.data || []);
+      setPosts(enrichedPosts.filter(p => !['TA1', 'TA2'].includes(p.sub_type)));
+      setTaPapers(enrichedPosts.filter(p => ['TA1', 'TA2'].includes(p.sub_type)));
       setModRequests(modData.data || []);
       setStudents(enrData.data || []);
       setSubmissions(subData.data || []);
@@ -317,37 +491,59 @@ export default function CoordinatorDashboard() {
     e.preventDefault();
     if (!selectedRegSubId) return;
     setRegisteringSub(true);
+    const parsedSubId = isNaN(selectedRegSubId) ? selectedRegSubId : parseInt(selectedRegSubId, 10);
 
-    // Insert into user_roles
-    const { error: roleErr } = await supabase.from('user_roles').insert({
-      user_id: user.id,
-      role: 'coordinator',
-      subject_id: selectedRegSubId
-    });
+    // Check if user_roles entry already exists
+    const { data: existingRole } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('role', 'coordinator')
+      .eq('subject_id', parsedSubId)
+      .maybeSingle();
 
-    if (roleErr) {
-      showToast('Error registering subject: ' + roleErr.message, 'error');
-      setRegisteringSub(false);
-      return;
+    if (!existingRole) {
+      const { error: roleErr } = await supabase.from('user_roles').insert({
+        user_id: user.id,
+        role: 'coordinator',
+        subject_id: parsedSubId
+      });
+
+      if (roleErr) {
+        showToast('Error registering subject role: ' + roleErr.message, 'error');
+        setRegisteringSub(false);
+        return;
+      }
     }
 
-    // Insert into coordinator_subjects
-    const { error: assignErr } = await supabase.from('coordinator_subjects').insert({
-      coordinator_id: user.id,
-      subject_id: selectedRegSubId
-    });
+    // Check if coordinator_subjects entry already exists
+    const { data: existingAssign } = await supabase
+      .from('coordinator_subjects')
+      .select('id')
+      .eq('coordinator_id', user.id)
+      .eq('subject_id', parsedSubId)
+      .maybeSingle();
+
+    if (!existingAssign) {
+      const { error: assignErr } = await supabase.from('coordinator_subjects').insert({
+        coordinator_id: user.id,
+        subject_id: parsedSubId
+      });
+
+      if (assignErr) {
+        showToast('Error assigning subject: ' + assignErr.message, 'error');
+        setRegisteringSub(false);
+        return;
+      }
+    }
+
+    await supabase.from('profiles').update({ is_coordinator: true }).eq('id', user.id);
 
     setRegisteringSub(false);
-
-    if (assignErr) {
-      // Clean up the inserted user_role to prevent partial state
-      await supabase.from('user_roles').delete().eq('user_id', user.id).eq('role', 'coordinator').eq('subject_id', selectedRegSubId);
-      showToast('Error assigning subject: ' + assignErr.message, 'error');
-    } else {
-      showToast('Successfully registered as coordinator! 🎉', 'success');
-      setSelectedRegSubId('');
-      if (refreshProfile) await refreshProfile();
-    }
+    showToast('Successfully registered as coordinator! 🎉', 'success');
+    setSelectedRegSubId('');
+    if (refreshProfile) await refreshProfile();
+    fetchData();
   }
 
   useEffect(() => { fetchData(); }, [user, isCoordinator, isAdmin]);
@@ -454,7 +650,14 @@ export default function CoordinatorDashboard() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: '' })} />
-      <UploadModal open={showUploadModal} onClose={() => setShowUploadModal(false)} subjects={subjects} showToast={showToast} onUploaded={fetchData} />
+      <UploadModal 
+        open={showUploadModal} 
+        onClose={() => { setShowUploadModal(false); setActiveUploadSubjectId(''); }} 
+        subjects={subjects} 
+        defaultSubjectId={activeUploadSubjectId}
+        showToast={showToast} 
+        onUploaded={fetchData} 
+      />
 
       {/* ── SIDEBAR ─── */}
       <div className="w-64 bg-gradient-to-b from-gray-950 to-gray-900 text-white flex flex-col z-20 shadow-2xl flex-shrink-0">
@@ -602,7 +805,7 @@ export default function CoordinatorDashboard() {
                       <p className="text-xs text-gray-400">{s.branch || '—'} · Sem {s.semester || '—'}</p>
                     </div>
                   </div>
-                  <Link to={`/subject/${s.id}`} className="flex items-center gap-1 text-indigo-600 text-sm font-bold hover:text-indigo-800 transition">
+                  <Link to={`/subject/${s.id}`} state={{ from: 'coordinator' }} className="flex items-center gap-1 text-indigo-600 text-sm font-bold hover:text-indigo-800 transition">
                     View <FaChevronRight className="text-xs" />
                   </Link>
                 </div>
@@ -689,30 +892,69 @@ export default function CoordinatorDashboard() {
         )}
 
         {/* ── ALL CONTENT TAB ── */}
-        {activeTab === 'uploads' && subjects.length > 0 && (
-          <div className="space-y-8 animate-fade-in-up">
-            <ResourceTable
-              title={`All Resources (${resources.length})`}
-              rows={resources}
-              emptyText="No resources yet. Upload your first material above."
-              onDelete={id => handleDeleteResource(id, 'resources')}
-              showApprovalBadge
-              urlKey="url"
-            />
-            <ResourceTable
-              title={`TA Papers (${taPapers.length})`}
-              rows={taPapers}
-              emptyText="No TA papers uploaded yet."
-              onApprove={id => handleStatusUpdate(id, 'approved', 'faculty_workspace')}
-              onReject={id => handleStatusUpdate(id, 'rejected', 'faculty_workspace')}
-              onDelete={id => handleDeleteResource(id, 'faculty_workspace')}
-              showActions
-              showApprovalBadge
-              urlKey="resource_url"
-              typeKey="sub_type"
-            />
-          </div>
-        )}
+        {activeTab === 'uploads' && subjects.length > 0 && (() => {
+          const filteredResources = contentSubjectFilter === 'all' 
+            ? resources 
+            : resources.filter(r => String(r.subject_id) === String(contentSubjectFilter));
+          const filteredTaPapers = contentSubjectFilter === 'all' 
+            ? taPapers 
+            : taPapers.filter(r => String(r.subject_id) === String(contentSubjectFilter));
+
+          return (
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Subject Filter Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Subject Filter:</span>
+                  <select
+                    value={contentSubjectFilter}
+                    onChange={e => setContentSubjectFilter(e.target.value)}
+                    className="p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Coordinated Subjects ({subjects.length})</option>
+                    {subjects.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.branch || 'CS'} · Sem {s.semester || '—'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveUploadSubjectId(contentSubjectFilter !== 'all' ? contentSubjectFilter : (subjects[0]?.id || ''));
+                    setShowUploadModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-indigo-700 transition shadow-sm"
+                >
+                  <FaCloudUploadAlt /> + Upload to This Subject
+                </button>
+              </div>
+
+              <ResourceTable
+                title={`All Resources ${contentSubjectFilter !== 'all' ? `(${filteredResources.length})` : `(${resources.length})`}`}
+                rows={filteredResources}
+                emptyText="No resources found for this filter. Upload your first material above."
+                onEdit={setEditingResource}
+                onDelete={id => handleDeleteResource(id, 'resources')}
+                showApprovalBadge
+                urlKey="url"
+              />
+              <ResourceTable
+                title={`TA Papers ${contentSubjectFilter !== 'all' ? `(${filteredTaPapers.length})` : `(${taPapers.length})`}`}
+                rows={filteredTaPapers}
+                emptyText="No TA papers uploaded for this filter."
+                onApprove={id => handleStatusUpdate(id, 'approved', 'faculty_workspace')}
+                onReject={id => handleStatusUpdate(id, 'rejected', 'faculty_workspace')}
+                onEdit={setEditingResource}
+                onDelete={id => handleDeleteResource(id, 'faculty_workspace')}
+                showActions
+                showApprovalBadge
+                urlKey="resource_url"
+                typeKey="sub_type"
+              />
+            </div>
+          );
+        })()}
 
         {/* ── TIMELINE TAB ── */}
         {activeTab === 'timeline' && subjects.length > 0 && (
@@ -907,37 +1149,158 @@ export default function CoordinatorDashboard() {
             ) : subjects.map(s => {
               const subResources = resources.filter(r => String(r.subject_id) === String(s.id));
               const subStudents  = new Set(students.filter(e => String(e.subject_id) === String(s.id)).map(e => e.user_id)).size;
+              const isExpanded = expandedSubjectId === s.id;
+
               return (
-                <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-white border-b flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-extrabold text-xl">
-                      {s.title?.charAt(0)}
+                <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition">
+                  <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-white border-b flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-extrabold text-xl shadow-md shadow-indigo-100">
+                        {s.title?.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-gray-900 text-base">{s.title}</h3>
+                        <p className="text-xs text-gray-500 font-medium">{s.branch || 'General'} · Semester {s.semester || '—'}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-extrabold text-gray-900">{s.title}</h3>
-                      <p className="text-xs text-gray-500">{s.branch || '—'} · Semester {s.semester || '—'}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveUploadSubjectId(s.id);
+                          setShowUploadModal(true);
+                        }}
+                        className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2 rounded-xl font-bold text-xs transition"
+                      >
+                        <FaCloudUploadAlt /> + Upload Material
+                      </button>
+                      <Link 
+                        to={`/subject/${s.id}`}
+                        state={{ from: 'coordinator' }}
+                        className="flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700 px-3.5 py-2 rounded-xl font-bold text-xs transition shadow-sm"
+                      >
+                        <FaEye /> View Subject
+                      </Link>
                     </div>
-                    <Link to={`/subject/${s.id}`}
-                      className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 transition">
-                      <FaEye /> View Subject
-                    </Link>
                   </div>
-                  <div className="p-6 grid grid-cols-3 gap-4">
+
+                  <div className="p-5 grid grid-cols-3 gap-4 border-b border-gray-100">
                     <div className="text-center">
                       <div className="text-2xl font-extrabold text-indigo-600">{subResources.length}</div>
-                      <div className="text-xs text-gray-500 mt-1">Total Resources</div>
+                      <div className="text-xs text-gray-500 mt-1 font-medium">Total Resources</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-extrabold text-green-600">
                         {subResources.filter(r => r.approval_status === 'approved').length}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">Approved</div>
+                      <div className="text-xs text-gray-500 mt-1 font-medium">Approved</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-extrabold text-purple-600">{subStudents}</div>
-                      <div className="text-xs text-gray-500 mt-1">Students</div>
+                      <div className="text-xs text-gray-500 mt-1 font-medium">Enrolled Students</div>
                     </div>
                   </div>
+
+                  {/* Resource Drawer Accordion Header */}
+                  <div className="px-6 py-3 bg-gray-50/80 flex items-center justify-between border-b border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedSubjectId(isExpanded ? null : s.id)}
+                      className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-2 py-1"
+                    >
+                      <span>{isExpanded ? <FaChevronUp className="inline text-[10px]" /> : <FaChevronDown className="inline text-[10px]" />}</span>
+                      <span>{isExpanded ? 'Hide Subject Resources' : `Watch & Edit Resources (${subResources.length})`}</span>
+                    </button>
+                    <span className="text-[11px] text-gray-400">
+                      {isExpanded ? 'Showing uploaded items' : 'Click to inspect or delete'}
+                    </span>
+                  </div>
+
+                  {/* Inline Resource Management Drawer */}
+                  {isExpanded && (
+                    <div className="p-4 bg-gray-50 divide-y divide-gray-200/60 max-h-96 overflow-y-auto">
+                      {subResources.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400 text-xs">
+                          <p>No resources uploaded yet for this subject.</p>
+                          <button
+                            type="button"
+                            onClick={() => { setActiveUploadSubjectId(s.id); setShowUploadModal(true); }}
+                            className="mt-2 text-indigo-600 font-bold hover:underline inline-flex items-center gap-1"
+                          >
+                            <FaPlus className="text-[10px]" /> Upload First Material
+                          </button>
+                        </div>
+                      ) : (
+                        subResources.map(r => (
+                          <div key={r.id} className="py-3 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white rounded-xl transition">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-xs text-gray-900 truncate">{r.title}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="bg-gray-200 text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                                  {r.type}
+                                </span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  r.approval_status === 'approved' ? 'bg-green-100 text-green-700' :
+                                  r.approval_status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {r.approval_status || 'approved'}
+                                </span>
+                                {r.is_official && <span className="text-[10px] text-indigo-600 font-bold">⭐ Official</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {r.url && (
+                                <a
+                                  href={resolveResourceUrl(r.url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold px-3 py-1.5 rounded-lg border border-indigo-200 transition"
+                                >
+                                  <FaExternalLinkAlt className="text-[10px]" /> Watch / Open
+                                </a>
+                              )}
+                              {r.approval_status === 'pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusUpdate(r.id, 'approved', 'resources')}
+                                    className="text-xs bg-green-50 text-green-700 hover:bg-green-100 font-bold px-2.5 py-1.5 rounded-lg border border-green-200 transition"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusUpdate(r.id, 'rejected', 'resources')}
+                                    className="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold px-2.5 py-1.5 rounded-lg border border-amber-200 transition"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setEditingResource(r)}
+                                className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold p-2 rounded-lg border border-indigo-200 transition"
+                                title="Modify Resource"
+                              >
+                                <FaEdit className="text-[11px]" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteResource(r.id, 'resources')}
+                                className="text-xs bg-red-50 text-red-600 hover:bg-red-100 font-bold p-2 rounded-lg border border-red-200 transition"
+                                title="Delete Resource"
+                              >
+                                <FaTrash className="text-[11px]" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -996,12 +1359,21 @@ export default function CoordinatorDashboard() {
           </form>
         </div>
       )}
+
+      {/* ── EDIT RESOURCE MODAL ── */}
+      <EditResourceModal
+        open={!!editingResource}
+        resource={editingResource}
+        onClose={() => setEditingResource(null)}
+        onSaved={fetchData}
+        showToast={showToast}
+      />
     </div>
   );
 }
 
 // ── Reusable Resource Table ────────────────────────────────────
-function ResourceTable({ title, rows, emptyText, onApprove, onReject, onDelete, showActions = false, showApprovalBadge = false, urlKey = 'url', typeKey = 'type' }) {
+function ResourceTable({ title, rows, emptyText, onApprove, onReject, onEdit, onDelete, showActions = false, showApprovalBadge = false, urlKey = 'url', typeKey = 'type' }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
@@ -1025,7 +1397,7 @@ function ResourceTable({ title, rows, emptyText, onApprove, onReject, onDelete, 
               <td className="px-6 py-4">
                 <p className="font-semibold text-gray-900 text-sm">{r.title}</p>
                 {r[urlKey] && (
-                  <a href={r[urlKey]} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:underline">View File</a>
+                  <a href={resolveResourceUrl(r[urlKey])} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:underline">View File</a>
                 )}
                 {r.subjects?.title && <p className="text-[10px] text-gray-400 mt-0.5">{r.subjects.title}</p>}
               </td>
@@ -1057,6 +1429,11 @@ function ResourceTable({ title, rows, emptyText, onApprove, onReject, onDelete, 
                 {showActions && r.approval_status === 'pending' && onReject && (
                   <button onClick={() => onReject(r.id)} className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-sm font-bold inline-flex items-center gap-1">
                     <FaTimesCircle /> Reject
+                  </button>
+                )}
+                {onEdit && (
+                  <button onClick={() => onEdit(r)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-bold inline-flex items-center gap-1" title="Modify Details">
+                    <FaEdit /> Edit
                   </button>
                 )}
                 {onDelete && (
