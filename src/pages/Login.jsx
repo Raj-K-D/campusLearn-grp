@@ -12,7 +12,7 @@ const OWNER_EMAILS = ['rajdugane00@gmail.com', 'rajdugane685@gmail.com'];
 export default function Login({ portal: propPortal }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signIn, signUp, signOut, user, profile, isAdmin, isCoordinator } = useAuth();
+  const { signIn, signUp, signOut, requestPasswordReset, user, profile, isAdmin, isCoordinator } = useAuth();
 
   // Detect portal from prop or URL
   const portal = propPortal || (() => {
@@ -29,6 +29,7 @@ export default function Login({ portal: propPortal }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   // If already logged in, check if allowed in this portal or redirect
   useEffect(() => {
@@ -56,11 +57,15 @@ export default function Login({ portal: propPortal }) {
     setSuccess('');
 
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        const { error: resetError } = await requestPasswordReset(email.trim());
+        if (resetError) throw resetError;
+        setSuccess('If an account exists for this email, a password reset link will be sent shortly.');
+      } else if (isSignUp) {
         if (portal === 'admin') {
           throw new Error('Administrator accounts are provisioned by system administration and cannot be self-registered.');
         }
-        if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+        if (password.length < 8) throw new Error('Password must be at least 8 characters.');
         const { error: upErr } = await signUp({ email: email.trim(), password });
         if (upErr) throw upErr;
         setSuccess('✅ Account created! Please check your email to verify and sign in.');
@@ -186,29 +191,29 @@ export default function Login({ portal: propPortal }) {
       icon: <FaShieldAlt className="text-xl" />,
     },
     coordinator: {
-      bg: 'bg-gradient-to-br from-purple-50 via-white to-indigo-50 text-gray-900',
-      cardBg: 'bg-white border-purple-100 shadow-2xl shadow-purple-200/50',
-      headerGradient: 'bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-600 text-white',
+      bg: 'bg-gradient-to-br from-gray-950 via-gray-950 to-indigo-950 text-white',
+      cardBg: 'bg-gray-900/90 border-gray-800 text-white shadow-2xl shadow-indigo-950/50',
+      headerGradient: 'bg-gradient-to-r from-purple-800 via-purple-700 to-indigo-800 text-white',
       badge: '🧑‍🏫 Faculty & Coordinator Portal',
-      badgeBg: 'bg-white/15 text-white',
+      badgeBg: 'bg-white/10 text-purple-100 border border-white/15',
       title: 'Coordinator Sign In',
       subtitle: 'Manage assigned course syllabi, resources & submissions',
-      buttonBg: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-200',
-      inputBg: 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-purple-500 placeholder-gray-400',
-      labelText: 'text-gray-700',
+      buttonBg: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-950/50',
+      inputBg: 'bg-gray-800/80 border-gray-700 text-white focus:bg-gray-800 focus:border-purple-500 placeholder-gray-500',
+      labelText: 'text-gray-300',
       icon: <FaUserTie className="text-xl" />,
     },
     student: {
-      bg: 'bg-gradient-to-br from-indigo-50 via-white to-blue-50 text-gray-900',
-      cardBg: 'bg-white border-gray-100 shadow-2xl shadow-gray-200/50',
-      headerGradient: 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white',
+      bg: 'bg-gradient-to-br from-gray-950 via-gray-950 to-blue-950 text-white',
+      cardBg: 'bg-gray-900/90 border-gray-800 text-white shadow-2xl shadow-blue-950/50',
+      headerGradient: 'bg-gradient-to-r from-indigo-800 to-blue-800 text-white',
       badge: '🎓 Engineering Student Portal',
-      badgeBg: 'bg-white/15 text-white',
+      badgeBg: 'bg-white/10 text-blue-100 border border-white/15',
       title: 'Student Sign In',
       subtitle: 'Access structured notes, PPTs, exam prep & CGPA tools',
-      buttonBg: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200',
-      inputBg: 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-indigo-500 placeholder-gray-400',
-      labelText: 'text-gray-700',
+      buttonBg: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-950/50',
+      inputBg: 'bg-gray-800/80 border-gray-700 text-white focus:bg-gray-800 focus:border-indigo-500 placeholder-gray-500',
+      labelText: 'text-gray-300',
       icon: <FaGraduationCap className="text-xl" />,
     },
   };
@@ -255,15 +260,15 @@ export default function Login({ portal: propPortal }) {
 
           <div className="p-8">
             {/* Tabs (Only Student and Coordinator get signup option; Admin is Sign In only) */}
-            {portal !== 'admin' ? (
-              <div className={`flex rounded-xl p-1 mb-6 ${portal === 'admin' ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            {portal !== 'admin' && !isForgotPassword ? (
+              <div className="flex rounded-xl p-1 mb-6 bg-gray-800">
                 <button
                   type="button"
                   onClick={() => { setIsSignUp(false); setError(''); setSuccess(''); }}
                   className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                     !isSignUp
-                      ? (portal === 'admin' ? 'bg-gray-700 text-white shadow' : 'bg-white text-gray-900 shadow-sm')
-                      : 'text-gray-400 hover:text-gray-600'
+                      ? 'bg-gray-700 text-white shadow'
+                      : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   Sign In
@@ -273,15 +278,15 @@ export default function Login({ portal: propPortal }) {
                   onClick={() => { setIsSignUp(true); setError(''); setSuccess(''); }}
                   className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                     isSignUp
-                      ? (portal === 'admin' ? 'bg-gray-700 text-white shadow' : 'bg-white text-gray-900 shadow-sm')
-                      : 'text-gray-400 hover:text-gray-600'
+                      ? 'bg-gray-700 text-white shadow'
+                      : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   {portal === 'coordinator' ? 'Activate / Sign Up' : 'Sign Up Free'}
                 </button>
               </div>
             ) : (
-              <div className="mb-6 p-3 rounded-xl bg-blue-950/50 border border-blue-900/60 text-blue-200 text-xs flex items-center gap-2">
+              !isForgotPassword && <div className="mb-6 p-3 rounded-xl bg-blue-950/50 border border-blue-900/60 text-blue-200 text-xs flex items-center gap-2">
                 <FaShieldAlt className="text-blue-400 shrink-0 text-base" />
                 <span>Single Super Admin login. Central credentials only.</span>
               </div>
@@ -328,13 +333,13 @@ export default function Login({ portal: propPortal }) {
               </div>
 
               {/* Password */}
-              <div>
+              {!isForgotPassword && <div>
                 <label className={`block text-xs font-bold mb-1.5 ${cfg.labelText}`}>Password</label>
                 <div className="relative">
                   <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder={isSignUp ? 'Min. 6 characters' : 'Enter password'}
+                    placeholder={isSignUp ? 'Min. 8 characters' : 'Enter password'}
                     className={`w-full pl-10 pr-12 py-3 rounded-xl border outline-none text-sm transition ${cfg.inputBg}`}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -348,7 +353,7 @@ export default function Login({ portal: propPortal }) {
                     {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
-              </div>
+              </div>}
 
               <button
                 type="submit"
@@ -360,6 +365,8 @@ export default function Login({ portal: propPortal }) {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Authenticating...
                   </span>
+                ) : isForgotPassword ? (
+                  <>Send password reset link <FaArrowRight /></>
                 ) : isSignUp ? (
                   `Create ${portal === 'coordinator' ? 'Coordinator' : 'Student'} Account 🚀`
                 ) : (
@@ -368,10 +375,18 @@ export default function Login({ portal: propPortal }) {
               </button>
             </form>
 
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => { setIsForgotPassword((value) => !value); setError(''); setSuccess(''); }}
+                className="text-xs font-semibold text-indigo-300 hover:text-white transition-colors"
+              >
+                {isForgotPassword ? 'Back to sign in' : 'Forgot your password?'}
+              </button>
+            </div>
+
             {/* Portal Switcher Links */}
-            <div className={`mt-8 pt-5 border-t text-center text-xs space-y-2 ${
-              portal === 'admin' ? 'border-gray-800 text-gray-400' : 'border-gray-100 text-gray-500'
-            }`}>
+            <div className="mt-8 pt-5 border-t border-gray-800 text-center text-xs text-gray-400 space-y-2">
               <p className="font-semibold text-gray-400 uppercase text-[10px] tracking-wider mb-2">Switch Portal</p>
               <div className="flex flex-wrap items-center justify-center gap-3 font-bold">
                 {portal !== 'student' && (

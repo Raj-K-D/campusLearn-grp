@@ -8,11 +8,14 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from '../util/supabase';
 import { requestAI } from '../util/ai';
 import { useAuth } from '../context/AuthContext';
+import { MAX_UPLOAD_SIZE_BYTES, safeStorageFileName, validateUploadFile } from '../util/uploadValidation';
 
 export default function SubmissionSection({ subjectId, dm }) {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [gradingId, setGradingId] = useState(null);
   const [aiFeedback, setAiFeedback] = useState({});
   const [aiErrors, setAiErrors] = useState({});
@@ -32,12 +35,18 @@ export default function SubmissionSection({ subjectId, dm }) {
     // Load from DB first, fallback to localStorage
     async function loadSubmissions() {
       if (user) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('submissions')
           .select('*')
           .eq('subject_id', subjectId)
           .eq('student_id', user.id)
           .order('submitted_at', { ascending: false });
+        if (error) {
+          console.error('Could not load submissions:', error);
+          setLoadError(`Could not load your saved submissions: ${error.message}`);
+        } else {
+          setLoadError('');
+        }
         if (data && data.length > 0) {
           setSubmissions(data.map(s => ({
             id: s.id,
@@ -55,7 +64,10 @@ export default function SubmissionSection({ subjectId, dm }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) setSubmissions(JSON.parse(saved));
     }
-    loadSubmissions();
+    loadSubmissions().catch((error) => {
+      console.error('Could not load submissions:', error);
+      setLoadError(error.message || 'Could not load saved submissions.');
+    });
   }, [subjectId, user]);
 
   const saveToLocal = (data) => {
@@ -65,29 +77,29 @@ export default function SubmissionSection({ subjectId, dm }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setUploadError('');
     if (!formData.title || !formData.file) {
-      alert('Please fill in the title and select a file.');
+      setUploadError('Enter a submission title and choose a file.');
       return;
     }
     if (!user) {
-      alert('Please sign in to submit assignments.');
+      setUploadError('Please sign in to submit assignments.');
+      return;
+    }
+    const validationError = validateUploadFile(formData.file, MAX_UPLOAD_SIZE_BYTES);
+    if (validationError) {
+      setUploadError(validationError);
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // Upload file to Supabase Storage
-      let fileUrl = null;
-      const path = `submissions/${user.id}/${Date.now()}_${formData.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const path = `submissions/${user.id}/${Date.now()}_${safeStorageFileName(formData.file.name)}`;
       const { error: upErr } = await supabase.storage.from('materials').upload(path, formData.file);
-      if (upErr) {
-        console.warn('Storage upload failed:', upErr.message);
-      } else {
-        fileUrl = supabase.storage.from('materials').getPublicUrl(path).data.publicUrl;
-      }
+      if (upErr) throw new Error(`File upload failed: ${upErr.message}`);
+      const fileUrl = supabase.storage.from('materials').getPublicUrl(path).data.publicUrl;
 
-      // Insert submission row — no teacher_id required, goes to coordinator
       const submissionData = {
         student_id: user.id,
         subject_id: subjectId,
@@ -99,21 +111,15 @@ export default function SubmissionSection({ subjectId, dm }) {
         submitted_at: new Date().toISOString(),
       };
 
-      let dbId = null;
-      try {
-        const { data: inserted, error: dbErr } = await supabase
-          .from('submissions')
-          .insert([submissionData])
-          .select()
-          .single();
-        if (dbErr) throw dbErr;
-        dbId = inserted?.id;
-      } catch (dbErr) {
-        console.warn('DB insert failed, saving locally:', dbErr.message);
-      }
+      const { data: inserted, error: dbErr } = await supabase
+        .from('submissions')
+        .insert([submissionData])
+        .select()
+        .single();
+      if (dbErr) throw new Error(`The file uploaded, but the submission could not be recorded: ${dbErr.message}`);
 
       const newSub = {
-        id: dbId || Date.now(),
+        id: inserted.id,
         title: formData.title,
         type: formData.type,
         fileName: formData.file.name,
@@ -129,6 +135,9 @@ export default function SubmissionSection({ subjectId, dm }) {
       // reset file input
       const fi = document.getElementById('sub-file-input');
       if (fi) fi.value = '';
+    } catch (error) {
+      console.error('Assignment submission failed:', error);
+      setUploadError(error.message || 'Submission failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -194,6 +203,12 @@ export default function SubmissionSection({ subjectId, dm }) {
 
   return (
     <div className="space-y-8">
+      {loadError && (
+        <p role="alert" className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-300">
+          {loadError}
+        </p>
+      )}
+
       {/* Upload Form */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -247,7 +262,14 @@ export default function SubmissionSection({ subjectId, dm }) {
               <input
                 id="sub-file-input"
                 type="file"
-                onChange={e => setFormData({ ...formData, file: e.target.files[0] })}
+                accept=".pdf,.ppt,.pptx,.doc,.docx"
+                onChange={e => {
+                  const selectedFile = e.target.files?.[0] || null;
+                  const validationError = validateUploadFile(selectedFile, MAX_UPLOAD_SIZE_BYTES);
+                  setUploadError(validationError);
+                  setFormData({ ...formData, file: validationError ? null : selectedFile });
+                  if (validationError) e.target.value = '';
+                }}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <div className="flex flex-col items-center">
@@ -264,11 +286,17 @@ export default function SubmissionSection({ subjectId, dm }) {
                 <p className={`text-xs mt-1 ${dm ? 'text-gray-500' : 'text-gray-400'}`}>
                   {formData.file
                     ? `${(formData.file.size / 1024 / 1024).toFixed(2)} MB`
-                    : 'PDF, PPTX, DOCX — Max 10 MB'}
+                    : 'PDF, PPTX, DOCX, TXT, ZIP — Max 10 MB'}
                 </p>
               </div>
             </div>
           </div>
+
+          {uploadError && (
+            <p role="alert" className="md:col-span-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+              {uploadError}
+            </p>
+          )}
 
           {/* Submit button */}
           <div className="md:col-span-2 flex justify-end mt-2">

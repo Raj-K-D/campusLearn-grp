@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { FaArrowRight, FaLock, FaRocket, FaMoon, FaSun, FaCalculator, FaBook, FaUsers, FaShieldAlt } from 'react-icons/fa';
+import { FaArrowRight, FaLock, FaMoon, FaSun, FaCalculator, FaChevronLeft, FaChevronRight, FaGithub, FaUserTie } from 'react-icons/fa';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import SubjectPage from './pages/SubjectPage';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import PasswordReset from './pages/PasswordReset';
 import StudentDashboard from './pages/StudentDashboard';
 import NotFound from './pages/NotFound';
 import EnrollPage from './pages/EnrollPage';
@@ -31,12 +32,35 @@ const STATS = [
   { value: '100%', label: 'Free Access' },
 ];
 
+const HERO_IMAGES = [
+  {
+    src: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1920&q=80',
+    alt: 'University students studying together on campus',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1920&q=80',
+    alt: 'Students collaborating on coursework with a laptop',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1920&q=80',
+    alt: 'Students learning together in a classroom',
+  },
+];
+
 function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { darkMode, setDarkMode } = useTheme();
   const [showCalc, setShowCalc] = useState(false);
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
   const dm = darkMode;
+
+  useEffect(() => {
+    const slideshow = window.setInterval(() => {
+      setHeroImageIndex((index) => (index + 1) % HERO_IMAGES.length);
+    }, 6000);
+    return () => window.clearInterval(slideshow);
+  }, []);
 
   return (
     <div className={`min-h-screen font-sans transition-colors ${dm ? 'bg-gray-950 text-white' : 'bg-white text-gray-900'}`}>
@@ -47,6 +71,11 @@ function Landing() {
         <Link to="/" className="text-2xl font-extrabold tracking-tight">
           Campus<span className="text-indigo-600">Learn</span>
         </Link>
+
+        <div className={`hidden md:flex items-center gap-7 text-sm font-semibold ${dm ? 'text-gray-300' : 'text-gray-600'}`}>
+          <a href="#features" className="hover:text-indigo-400 transition-colors">Features</a>
+          <a href="#contact" className="hover:text-indigo-400 transition-colors">Contact</a>
+        </div>
 
         <div className="flex items-center gap-3">
           <button
@@ -74,10 +103,24 @@ function Landing() {
       </nav>
 
       {/* HERO */}
-      <section className="relative pt-32 pb-24 px-6 overflow-hidden">
-        {/* Background blobs */}
-        <div className="absolute top-20 left-1/4 w-96 h-96 bg-indigo-400 rounded-full blur-3xl opacity-10 pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-blue-400 rounded-full blur-3xl opacity-10 pointer-events-none" />
+      <section className="relative min-h-[680px] flex items-center pt-28 pb-20 px-6 overflow-hidden bg-gray-950">
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={HERO_IMAGES[heroImageIndex].src}
+            src={HERO_IMAGES[heroImageIndex].src}
+            alt={HERO_IMAGES[heroImageIndex].alt}
+            aria-hidden="true"
+            initial={{ opacity: 0, scale: 1.06 }}
+            animate={{ opacity: 0.22, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 1.2, ease: 'easeInOut' }}
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-950 via-gray-950/90 to-indigo-950/75" />
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-gray-950/30" />
+        <div className="absolute -top-20 left-1/4 w-96 h-96 bg-indigo-500 rounded-full blur-3xl opacity-15 pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-blue-500 rounded-full blur-3xl opacity-15 pointer-events-none" />
 
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -133,6 +176,37 @@ function Landing() {
               <FaCalculator /> CGPA Calculator
             </motion.button>
           </div>
+
+          <div className="mt-12 flex items-center justify-center gap-4" aria-label="Hero background slideshow controls">
+            <button
+              type="button"
+              onClick={() => setHeroImageIndex((index) => (index + HERO_IMAGES.length - 1) % HERO_IMAGES.length)}
+              aria-label="Previous background image"
+              className="w-9 h-9 rounded-full border border-white/20 bg-black/25 text-white/80 hover:bg-white/15 hover:text-white transition"
+            >
+              <FaChevronLeft className="mx-auto text-xs" />
+            </button>
+            <div className="flex items-center gap-2">
+              {HERO_IMAGES.map((image, index) => (
+                <button
+                  key={image.src}
+                  type="button"
+                  onClick={() => setHeroImageIndex(index)}
+                  aria-label={`Show background image ${index + 1}`}
+                  aria-current={heroImageIndex === index ? 'true' : undefined}
+                  className={`h-2 rounded-full transition-all ${heroImageIndex === index ? 'w-8 bg-indigo-400' : 'w-2 bg-white/45 hover:bg-white/75'}`}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setHeroImageIndex((index) => (index + 1) % HERO_IMAGES.length)}
+              aria-label="Next background image"
+              className="w-9 h-9 rounded-full border border-white/20 bg-black/25 text-white/80 hover:bg-white/15 hover:text-white transition"
+            >
+              <FaChevronRight className="mx-auto text-xs" />
+            </button>
+          </div>
         </motion.div>
       </section>
 
@@ -156,7 +230,7 @@ function Landing() {
       </section>
 
       {/* FEATURES */}
-      <section className="py-20 px-6 max-w-6xl mx-auto">
+      <section id="features" className="py-20 px-6 max-w-6xl mx-auto scroll-mt-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -229,6 +303,61 @@ function Landing() {
         </motion.div>
       </section>
 
+      {/* CONTACT */}
+      <section id="contact" className={`py-20 px-6 border-t scroll-mt-20 ${dm ? 'border-gray-800 bg-gray-900/60' : 'border-gray-100 bg-gray-50'}`}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-5xl mx-auto"
+        >
+          <div className="text-center mb-10">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-400 mb-3">We’re here to help</p>
+            <h2 className="text-4xl font-extrabold mb-4">Contact us</h2>
+            <p className={`text-lg max-w-2xl mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Need help with your account, course access, or the platform? Choose the right channel and we’ll get you pointed in the right direction.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2">
+            <motion.div
+              whileHover={{ y: -4 }}
+              className={`rounded-2xl border p-6 ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-200'}`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="w-11 h-11 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center"><FaUserTie /></span>
+                <h3 className="font-bold text-lg">Course access &amp; accounts</h3>
+              </div>
+              <p className={`text-sm leading-relaxed mb-5 ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                For coordinator invitations, course assignments, or account access, contact your course coordinator or platform administrator.
+              </p>
+              <Link to="/coordinator/login" className="inline-flex items-center gap-2 text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-colors">
+                Open coordinator portal <FaArrowRight />
+              </Link>
+            </motion.div>
+            <motion.div
+              whileHover={{ y: -4 }}
+              className={`rounded-2xl border p-6 ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-200'}`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="w-11 h-11 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><FaGithub /></span>
+                <h3 className="font-bold text-lg">Feedback &amp; technical issues</h3>
+              </div>
+              <p className={`text-sm leading-relaxed mb-5 ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                Found a bug or have an idea to improve CampusLearn? Send the project team a report through the repository.
+              </p>
+              <a
+                href="https://github.com/Raj-K-D/campusLearn-grp/issues"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                Contact the project team <FaArrowRight />
+              </a>
+            </motion.div>
+          </div>
+        </motion.div>
+      </section>
+
       {/* FOOTER */}
       <footer className={`border-t py-10 px-6 ${dm ? 'border-gray-800 bg-gray-950' : 'border-gray-100 bg-white'}`}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -239,6 +368,9 @@ function Landing() {
             © 2024 CampusLearn — Built with ❤️ for engineering students
           </p>
           <div className="flex gap-4 text-xs font-semibold">
+            <a href="#contact" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+              Contact Us
+            </a>
             <Link to="/dashboard" className={`hover:text-indigo-600 transition ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
               Student Dashboard
             </Link>
@@ -286,6 +418,7 @@ export default function App() {
               <Route path="/login" element={<Login portal="student" />} />
               <Route path="/student" element={<Login portal="student" />} />
               <Route path="/student-login" element={<Login portal="student" />} />
+              <Route path="/reset-password" element={<PasswordReset />} />
 
               {/* Coordinator Login & Dashboard Routes */}
               <Route path="/coordinator-login" element={<Login portal="coordinator" />} />

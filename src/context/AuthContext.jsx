@@ -150,6 +150,10 @@ export function AuthProvider({ children }) {
     signUp:  (data) => supabase.auth.signUp(data),
     signIn:  (data) => supabase.auth.signInWithPassword(data),
     signOut: () => supabase.auth.signOut(),
+    requestPasswordReset: (email) => supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    }),
+    updatePassword: (password) => supabase.auth.updateUser({ password }),
     user,
     profile,
     isAdmin,

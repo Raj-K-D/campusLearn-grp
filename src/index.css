@@ -136,3 +136,24 @@ select, option {
 select:focus {
   background-color: #f9fafb !important;
 }
+
+html.dark select,
+html.dark option {
+  color: #f3f4f6 !important;
+  background-color: #1f2937 !important;
+}
+
+html.dark select:focus {
+  background-color: #111827 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

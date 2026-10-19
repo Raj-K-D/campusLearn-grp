@@ -11,6 +11,7 @@ import {
   FaChevronRight, FaChevronDown, FaChevronUp, FaExternalLinkAlt
 } from 'react-icons/fa';
 import { resolveResourceUrl } from '../util/resourceUrls';
+import { MAX_UPLOAD_SIZE_BYTES, safeStorageFileName, validateUploadFile } from '../util/uploadValidation';
 
 // ── Toast ─────────────────────────────────────────────────────
 function Toast({ message, type, onClose }) {
@@ -79,6 +80,11 @@ function UploadModal({ open, onClose, subjects, showToast, onUploaded, defaultSu
     e.preventDefault();
     if (!form.subject_id) { showToast('Select a subject first', 'error'); return; }
     if (files.length === 0 && !form.url) { showToast('Please select a file or enter a URL', 'error'); return; }
+    const invalidFile = files.find(file => validateUploadFile(file, MAX_UPLOAD_SIZE_BYTES));
+    if (invalidFile) {
+      showToast(`${invalidFile.name}: ${validateUploadFile(invalidFile, MAX_UPLOAD_SIZE_BYTES)}`, 'error');
+      return;
+    }
     setLoading(true);
 
     const isTaPaper = form.type === 'ta_paper_1' || form.type === 'ta_paper_2';
@@ -86,7 +92,7 @@ function UploadModal({ open, onClose, subjects, showToast, onUploaded, defaultSu
     const processEntry = async (fileOrNull, urlOverride = null) => {
       let finalUrl = urlOverride || form.url;
       if (fileOrNull) {
-        const path = `coordinator/${user.id}/${Date.now()}_${fileOrNull.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const path = `coordinator/${user.id}/${Date.now()}_${safeStorageFileName(fileOrNull.name)}`;
         const { error: upErr } = await supabase.storage.from('materials').upload(path, fileOrNull);
         if (upErr) { showToast(`Upload failed for ${fileOrNull.name}: ${upErr.message}`, 'error'); return false; }
         finalUrl = supabase.storage.from('materials').getPublicUrl(path).data.publicUrl;
@@ -124,24 +130,41 @@ function UploadModal({ open, onClose, subjects, showToast, onUploaded, defaultSu
     };
 
     let successCount = 0;
-    if (files.length > 0) {
-      for (const f of files) {
-        const ok = await processEntry(f, null);
-        if (ok) successCount++;
+    let failedCount = 0;
+    const successfulFiles = [];
+    try {
+      if (files.length > 0) {
+        for (const f of files) {
+          const ok = await processEntry(f, null);
+          if (ok) {
+            successCount++;
+            successfulFiles.push(f);
+          }
+          else failedCount++;
+        }
+      } else {
+        const ok = await processEntry(null, form.url);
+        if (ok) successCount = 1;
+        else failedCount = 1;
       }
-    } else {
-      const ok = await processEntry(null, form.url);
-      if (ok) successCount = 1;
-    }
 
-    if (successCount > 0) {
-      showToast(`✅ Uploaded ${successCount} item(s) — live immediately`, 'success');
-      setForm({ subject_id: '', type: 'note', title: '', url: '', visibility: 'SUBJECT_WIDE' });
-      setFiles([]);
-      onUploaded();
-      onClose();
+      if (successCount > 0) {
+        if (failedCount > 0) {
+          showToast(`Uploaded ${successCount} item(s); ${failedCount} failed. Failed files remain selected so you can retry.`, 'error');
+          setFiles(currentFiles => currentFiles.filter(file => !successfulFiles.includes(file)));
+        } else {
+          showToast(`Uploaded ${successCount} item(s) — live immediately`, 'success');
+          setForm({ subject_id: '', type: 'note', title: '', url: '', visibility: 'SUBJECT_WIDE' });
+          setFiles([]);
+        }
+        onUploaded();
+        if (failedCount === 0) onClose();
+      }
+    } catch (error) {
+      showToast(`Upload failed: ${error.message || 'Please try again.'}`, 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -208,7 +231,7 @@ function UploadModal({ open, onClose, subjects, showToast, onUploaded, defaultSu
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Files or URL</label>
             <div className="space-y-3">
               <div className="border-2 border-dashed border-indigo-200 bg-indigo-50/30 rounded-xl p-6 text-center hover:bg-indigo-50 transition cursor-pointer relative group">
-                <input type="file" multiple onChange={e => setFiles(Array.from(e.target.files))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <input type="file" multiple accept=".pdf,.ppt,.pptx,.doc,.docx,.txt,.zip" onChange={e => setFiles(Array.from(e.target.files))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                 <FaCloudUploadAlt className="text-3xl text-indigo-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
                 <span className="text-sm font-bold text-indigo-600 block mb-1">Select files (bulk upload supported)</span>
                 <span className="text-xs text-gray-500">{files.length > 0 ? `${files.length} file(s) selected` : 'Drag and drop or click to browse'}</span>

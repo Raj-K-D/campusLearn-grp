@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import BatchLinkManager from '../components/BatchLinkManager';
 import CoordinatorManager from '../components/CoordinatorManager';
 import { resolveResourceUrl } from '../util/resourceUrls';
+import { MAX_UPLOAD_SIZE_BYTES, safeStorageFileName, validateUploadFile } from '../util/uploadValidation';
 
 // --- PROFESSIONAL TOAST NOTIFICATION COMPONENT ---
 const Toast = ({ message, type, onClose }) => {
@@ -91,13 +92,20 @@ export default function Admin() {
   ];
 
   function addFilesToQueue(newFiles) {
-    const items = Array.from(newFiles).map(f => ({
-      file: f,
-      id: `${f.name}-${Date.now()}-${Math.random()}`,
-      status: 'pending', // pending | uploading | done | error
-      error: null,
-    }));
+    const items = Array.from(newFiles).map((f) => {
+      const error = validateUploadFile(f, MAX_UPLOAD_SIZE_BYTES);
+      return {
+        file: f,
+        id: `${f.name}-${Date.now()}-${Math.random()}`,
+        status: error ? 'error' : 'pending',
+        error: error || null,
+      };
+    });
+    const invalidCount = items.filter(item => item.error).length;
     setBulkFiles(prev => [...prev, ...items]);
+    if (invalidCount > 0) {
+      showToast(`${invalidCount} file(s) were rejected. Files must be non-empty and no larger than 10 MB.`, 'error');
+    }
   }
 
   function removeFromQueue(id) {
@@ -108,14 +116,15 @@ export default function Admin() {
     if (!bulkSubject) { showToast('Please select a subject first', 'error'); return; }
     if (bulkFiles.length === 0) { showToast('Add at least one file', 'error'); return; }
     setBulkUploading(true);
+    let failedCount = bulkFiles.filter(item => item.status === 'error').length;
 
     for (const item of bulkFiles) {
-      if (item.status === 'done') continue;
+      if (item.status === 'done' || item.status === 'error') continue;
       setBulkFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'uploading' } : f));
 
       try {
         const ext = item.file.name.split('.').pop();
-        const safeName = `${Date.now()}_${item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const safeName = `${Date.now()}_${safeStorageFileName(item.file.name)}`;
         const storagePath = `bulk/${bulkType}/${safeName}`;
         const { error: storErr } = await supabase.storage.from('materials').upload(storagePath, item.file);
         if (storErr) throw storErr;
@@ -127,12 +136,17 @@ export default function Admin() {
         if (dbErr) throw dbErr;
         setBulkFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'done' } : f));
       } catch (err) {
+        failedCount++;
         setBulkFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'error', error: err.message } : f));
       }
     }
     setBulkUploading(false);
     fetchAdminData();
-    showToast('Bulk upload complete!');
+    if (failedCount > 0) {
+      showToast(`Upload finished with ${failedCount} failed file(s). Remove failed entries, then reselect them to retry.`, 'error');
+    } else {
+      showToast('Bulk upload complete!');
+    }
   }
 
   // Fetch Initial Data
@@ -303,13 +317,19 @@ export default function Admin() {
   // --- EXISTING UPLOAD LOGIC ---
   async function handleUploadSubmit(e) {
     e.preventDefault();
+    if (file) {
+      const validationError = validateUploadFile(file, MAX_UPLOAD_SIZE_BYTES);
+      if (validationError) {
+        showToast(validationError, 'error');
+        return;
+      }
+    }
     setLoading(true);
     let finalUrl = formData.url;
 
     if (file && ['note', 'ppt', 'extra'].includes(formData.type)) {
       try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${safeStorageFileName(file.name)}`;
         const filePath = `${formData.type}s/${fileName}`;
         
         const { error: uploadError } = await supabase.storage.from('materials').upload(filePath, file);
@@ -728,7 +748,7 @@ export default function Admin() {
                     isDragging ? 'border-indigo-500 bg-indigo-50 scale-[1.01]' : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
                   }`}
                 >
-                  <input type="file" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  <input type="file" multiple accept=".pdf,.ppt,.pptx,.doc,.docx,.txt,.zip" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     onChange={e => addFilesToQueue(e.target.files)} />
                   <FaCloudUploadAlt className={`text-5xl mx-auto mb-3 transition-colors ${ isDragging ? 'text-indigo-500' : 'text-gray-300' }`} />
                   <p className="font-bold text-gray-600">Drag & drop files here, or click to browse</p>

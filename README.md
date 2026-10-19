@@ -10,6 +10,7 @@ CampusLearn is a modern academic platform designed for engineering students, tea
 - AI-powered academic assistant for quick help and guidance
 - Admin and coordinator tools for enrollment, approvals, and academic workflows
 - Dark mode and responsive design for desktop and mobile use
+- Supabase email-based password recovery
 
 ## Tech Stack
 
@@ -78,7 +79,7 @@ Recommended flow:
 Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Start the dev server:
@@ -98,6 +99,16 @@ Preview the production build:
 ```bash
 npm run preview
 ```
+
+Run the automated unit tests:
+
+```bash
+npm test
+```
+
+## Launch operations
+
+Read [OPERATIONS.md](./OPERATIONS.md) before staging or production. It covers the release checklist, role-based acceptance tests, password recovery redirect configuration, backup/restore verification, and known launch blockers. This repository does not configure hosting, monitoring, backups, or a production support contact.
 
 ## Linting
 
