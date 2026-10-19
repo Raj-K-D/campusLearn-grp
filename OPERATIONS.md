@@ -14,7 +14,7 @@ The client currently uses the Supabase `materials` Storage bucket for both publi
 4. In Supabase Auth, set the site URL and allow-list the exact staging and production redirect URLs, including `/reset-password`. Verify email delivery, expiry, rate limits, and recovery links end-to-end.
 5. Review every table and Storage RLS policy against the role matrix below. Test with real student, coordinator, and admin accounts; a hidden button or React route guard is not backend authorization.
 6. Create a **private** submissions bucket and policies that authorize students to write/read only their own objects and assigned coordinators to read the submissions they are entitled to review. Migrate the current submission upload path away from the public `materials` bucket before collecting real work.
-7. Identify a named operational owner and publish a monitored support contact. The homepage's issue link is a project feedback channel, not an incident-response or support SLA.
+7. Identify a named operational owner and publish a monitored support contact. The homepage directs users to their course coordinator or platform administrator; confirm those contacts can route support requests before launch. This guidance is not an incident-response or support SLA.
 8. Configure provider-side error monitoring, uptime checks, and alert ownership. Confirm logs exclude passwords, tokens, and uploaded private content.
 
 ## Release procedure
@@ -66,5 +66,5 @@ The client currently uses the Supabase `materials` Storage bucket for both publi
 - [ ] Private submission bucket and coordinator policies deployed and verified
 - [ ] Backup retention, Storage backup, and restore drill recorded
 - [ ] Error monitoring, uptime checks, and alert recipients configured
-- [ ] Named human support contact and incident owner published
+- [ ] Named human support contact, incident owner, and campus escalation route published
 - [ ] Release approver and rollback owner assigned

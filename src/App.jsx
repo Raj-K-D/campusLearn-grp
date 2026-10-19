@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { FaArrowRight, FaLock, FaMoon, FaSun, FaCalculator, FaChevronLeft, FaChevronRight, FaGithub, FaUserTie } from 'react-icons/fa';
+import { FaArrowRight, FaLock, FaMoon, FaSun, FaCalculator, FaChevronLeft, FaChevronRight, FaUserTie } from 'react-icons/fa';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import SubjectPage from './pages/SubjectPage';
@@ -23,6 +23,8 @@ const FEATURES = [
   { icon: '🎬', title: 'Video Lectures', desc: 'Curated YouTube lectures linked directly to each subject.' },
   { icon: '🧠', title: 'Quizzes', desc: 'Test yourself with interactive quizzes after each topic.' },
   { icon: '📊', title: 'CGPA Tracker', desc: 'Calculate your CGPA and plan your academic goals.' },
+  { icon: '✨', title: 'AI Study Companion', desc: 'Turn course material into summaries, flashcards, study plans, and guided quizzes.' },
+  { icon: '🏫', title: 'Campus Workspaces', desc: 'Student, coordinator, and administrator portals bring learning and course management together.' },
 ];
 
 const STATS = [
@@ -140,18 +142,18 @@ function Landing() {
               color: dm ? '#a5b4fc' : '#4f46e5',
             }}
           >
-            🎓 Built for Engineering Students
+            🎓 A learning workspace for your campus
           </motion.div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
-            Your Academic
+            One Workspace.
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500">
-              Survival Kit
+              Every Semester.
             </span>
           </h1>
           <p className={`text-xl md:text-2xl mb-10 max-w-2xl mx-auto leading-relaxed ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-            Notes, video lectures, quizzes, and tools — everything you need to ace every semester, all in one place.
+            Organize study resources, track academic progress, and support course teams through one easy-to-use campus platform.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -237,13 +239,13 @@ function Landing() {
           viewport={{ once: true }}
           className="text-center mb-14"
         >
-          <h2 className="text-4xl font-extrabold mb-4">Everything you need to excel</h2>
+          <h2 className="text-4xl font-extrabold mb-4">One campus platform for learning and operations</h2>
           <p className={`text-lg max-w-2xl mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
             One platform, all your study resources — organized, accessible, and free.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((f, i) => (
             <motion.div
               key={i}
@@ -281,16 +283,16 @@ function Landing() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-24 -mt-24 pointer-events-none" />
           <div className="relative">
             <div className="text-5xl mb-6">🚀</div>
-            <h2 className="text-4xl font-extrabold mb-4">Ready to crush your exams?</h2>
+            <h2 className="text-4xl font-extrabold mb-4">Bring your campus learning together</h2>
             <p className="text-indigo-200 mb-8 text-lg max-w-xl mx-auto">
-              Join thousands of engineering students already using CampusLearn to study smarter.
+              Bring course resources, academic progress, and study support into one shared workspace.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => navigate(user ? '/dashboard' : '/login')}
                 className="inline-flex items-center gap-2 bg-white text-indigo-700 px-8 py-4 rounded-xl font-bold hover:bg-indigo-50 transition"
               >
-                {user ? 'Go to Dashboard' : 'Sign Up Free'} <FaArrowRight />
+                {user ? 'Go to Dashboard' : 'Explore CampusLearn'} <FaArrowRight />
               </button>
               <button
                 onClick={() => navigate('/dashboard')}
@@ -339,20 +341,12 @@ function Landing() {
               className={`rounded-2xl border p-6 ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-200'}`}
             >
               <div className="flex items-center gap-3 mb-3">
-                <span className="w-11 h-11 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><FaGithub /></span>
-                <h3 className="font-bold text-lg">Feedback &amp; technical issues</h3>
+                <span className="w-11 h-11 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><FaUserTie /></span>
+                <h3 className="font-bold text-lg">Technical support</h3>
               </div>
               <p className={`text-sm leading-relaxed mb-5 ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-                Found a bug or have an idea to improve CampusLearn? Send the project team a report through the repository.
+                For technical problems or help using CampusLearn, contact your course coordinator or platform administrator. They can route your request to the appropriate team.
               </p>
-              <a
-                href="https://github.com/Raj-K-D/campusLearn-grp/issues"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                Contact the project team <FaArrowRight />
-              </a>
             </motion.div>
           </div>
         </motion.div>
