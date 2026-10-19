@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../context/ThemeContext';
 import { requestAI } from '../util/ai';
 import { extractPdfText } from '../util/pdf';
+import { getCreatorResponse } from '../util/aiIdentity';
 
 const STORAGE_KEY = 'cl_ai_chat_history';
 
@@ -55,12 +56,14 @@ export default function AIBuddy() {
     const msg = (text || input).trim();
     if (!msg || isTyping) return;
     const assistantMessageId = crypto.randomUUID();
+    const creatorResponse = getCreatorResponse(msg);
     setInput('');
     setMessages(prev => [
       ...prev,
       { role: 'user', content: msg },
-      { id: assistantMessageId, role: 'assistant', content: '' },
+      { id: assistantMessageId, role: 'assistant', content: creatorResponse || '' },
     ]);
+    if (creatorResponse) return;
     setIsTyping(true);
 
     // Detect subject context from URL
@@ -180,20 +183,23 @@ export default function AIBuddy() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`fixed bottom-6 right-6 z-50 w-full max-w-[380px] h-[600px] max-h-[80vh] flex flex-col rounded-3xl shadow-2xl overflow-hidden border ${
+            className={`fixed inset-x-3 bottom-3 z-50 mx-auto h-[min(680px,calc(100dvh-1.5rem))] w-auto max-w-[440px] flex flex-col rounded-3xl shadow-2xl overflow-hidden border sm:inset-x-auto sm:bottom-6 sm:right-6 sm:mx-0 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[min(440px,calc(100vw-3rem))] ${
               dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-200'
             }`}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="ai-buddy-title"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between text-white shrink-0">
+            <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-purple-700 px-4 py-3.5 flex items-center justify-between text-white shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <div className="w-11 h-11 bg-white/15 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-inner">
                   <span className="text-2xl" aria-hidden="true">🧸</span>
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm leading-tight">Gooloogulu</h3>
-                  <p className="text-[10px] text-indigo-200 font-medium flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Groq · GPT-OSS 120B
+                  <h3 id="ai-buddy-title" className="font-extrabold text-sm leading-tight">Gooloogulu</h3>
+                  <p className="text-xs text-indigo-100/90 font-medium mt-1">
+                    Your CampusLearn study companion
                   </p>
                 </div>
               </div>
@@ -201,12 +207,14 @@ export default function AIBuddy() {
                 <button
                   onClick={clearChat}
                   title="Clear chat"
+                  aria-label="Clear chat"
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-sm"
                 >
                   <FaTrash className="text-xs opacity-70" />
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
+                  aria-label="Close Gooloogulu chat"
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
                 >
                   <FaTimes />
@@ -215,7 +223,7 @@ export default function AIBuddy() {
             </div>
 
             {/* Messages Area */}
-            <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${dm ? 'bg-gray-900/50' : 'bg-gray-50/50'}`}>
+            <div className={`flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4 ${dm ? 'bg-gray-900/50' : 'bg-gray-50/50'}`} aria-live="polite" aria-relevant="additions text">
               {messages.map((msg, i) => (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -228,7 +236,7 @@ export default function AIBuddy() {
                       🧸
                     </div>
                   )}
-                  <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                  <div className={`max-w-[88%] rounded-2xl px-4 py-3.5 text-[14px] leading-relaxed shadow-sm ${
                     msg.role === 'user'
                       ? 'bg-indigo-600 text-white rounded-br-sm'
                       : dm
@@ -263,12 +271,12 @@ export default function AIBuddy() {
 
             {/* Quick Prompts (shown only if no messages from user yet) */}
             {messages.filter(m => m.role === 'user').length === 0 && (
-              <div className={`px-3 pb-1 flex gap-1.5 flex-wrap ${dm ? 'bg-gray-950' : 'bg-white'}`}>
+              <div className={`px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-hide ${dm ? 'bg-gray-950' : 'bg-white'}`}>
                 {QUICK_PROMPTS.map(p => (
                   <button
                     key={p}
                     onClick={() => handleSend(p)}
-                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition ${
+                    className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-xl border transition ${
                       dm
                         ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-indigo-900 hover:border-indigo-600'
                         : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-indigo-50 hover:border-indigo-200'
@@ -305,7 +313,7 @@ export default function AIBuddy() {
             )}
 
             {/* Input Area */}
-            <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className={`p-4 shrink-0 border-t ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
+            <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className={`p-3 sm:p-4 shrink-0 border-t ${dm ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -331,12 +339,14 @@ export default function AIBuddy() {
                 <input
                   type="text"
                   placeholder="Ask Gooloogulu anything…"
+                  aria-label="Message Gooloogulu"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  className="flex-1 bg-transparent py-3 px-4 outline-none text-sm"
+                  className="flex-1 min-w-0 bg-transparent py-3 px-2 sm:px-3 outline-none text-sm"
                 />
                 <button
                   type="submit"
+                  aria-label="Send message"
                   disabled={!input.trim() || isTyping}
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                     !input.trim() || isTyping
