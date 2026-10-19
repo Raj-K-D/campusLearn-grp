@@ -19,6 +19,7 @@ SUPABASE_CONFIG.md
 # Static large materials
 public/materials/
 scripts/compressed_materials/
+data/pdf/
 
 # Editor directories and files
 .vscode/*
